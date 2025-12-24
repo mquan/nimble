@@ -9,12 +9,36 @@ export type ToolConfig = {
   aliases?: Record<string, string>;
 };
 
-export type AuthConfig = {
-  type: "bearer" | "basic" | "apiKey";
+export type BearerAuthConfig = {
+  type: "bearer";
+  credentialRef: string;
+};
+
+export type BasicAuthConfig = {
+  type: "basic";
+  credentialRef: string;
+};
+
+export type ApiKeyAuthConfig = {
+  type: "apiKey";
   credentialRef: string;
   headerName?: string;
   queryParam?: string;
 };
+
+export type OAuthAuthConfig = {
+  type: "oauth";
+  credentialRef: string;
+  clientMetadata: Record<string, unknown>;
+  redirectUrl?: string;
+  scope?: string;
+};
+
+export type AuthConfig =
+  | BearerAuthConfig
+  | BasicAuthConfig
+  | ApiKeyAuthConfig
+  | OAuthAuthConfig;
 
 export type ServerConfig = {
   name: string;
@@ -79,6 +103,10 @@ export function loadManifest(manifestPath: string): Manifest {
   }
   const raw = fs.readFileSync(manifestPath, "utf-8");
   return JSON.parse(raw) as Manifest;
+}
+
+export function saveManifest(manifestPath: string, manifest: Manifest): void {
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
 export function selectProfile(

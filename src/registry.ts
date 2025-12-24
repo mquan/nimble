@@ -1,9 +1,14 @@
 import fs from "node:fs";
+import { Buffer } from "node:buffer";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import type { ProfileConfig, ServerConfig } from "./config.js";
 import type { CredentialStore } from "./credentials.js";
+import { StoredOAuthProvider } from "./oauth.js";
+import type { EventSourceInit } from "eventsource";
 
 type ServerStatus = {
   status: "ok" | "down";
@@ -110,17 +115,36 @@ export class ToolRegistry {
   }
 
   private async connectClient(server: ServerConfig): Promise<Client> {
-    if (server.transport !== "stdio") {
+    let transport:
+      | StdioClientTransport
+      | StreamableHTTPClientTransport
+      | SSEClientTransport;
+    if (server.transport === "stdio") {
+      if (!server.command) {
+        throw new Error(`Server ${server.name} is missing command`);
+      }
+      transport = new StdioClientTransport({
+        command: server.command,
+        args: server.args ?? [],
+        env: this.buildEnv(server),
+      });
+    } else if (server.transport === "http") {
+      const { url, requestInit, authProvider } = this.buildHttpConfig(server);
+      transport = new StreamableHTTPClientTransport(url, {
+        requestInit,
+        authProvider,
+      });
+    } else if (server.transport === "sse") {
+      const { url, requestInit, eventSourceInit, authProvider } =
+        this.buildHttpConfig(server);
+      transport = new SSEClientTransport(url, {
+        requestInit,
+        eventSourceInit,
+        authProvider,
+      });
+    } else {
       throw new Error(`Transport not implemented: ${server.transport}`);
     }
-    if (!server.command) {
-      throw new Error(`Server ${server.name} is missing command`);
-    }
-    const transport = new StdioClientTransport({
-      command: server.command,
-      args: server.args ?? [],
-      env: this.buildEnv(server),
-    });
     const client = new Client(
       { name: "mini-mcp-client", version: "0.1.0" },
       { capabilities: {} },
@@ -132,6 +156,9 @@ export class ToolRegistry {
   private buildEnv(server: ServerConfig): Record<string, string> | undefined {
     if (!server.auth) {
       return process.env as Record<string, string>;
+    }
+    if (server.auth.type === "oauth") {
+      throw new Error(`OAuth is not supported for stdio: ${server.name}`);
     }
     const secret = this.credentialStore.get(server.auth.credentialRef);
     if (!secret) {
@@ -158,7 +185,72 @@ export class ToolRegistry {
     return process.env as Record<string, string>;
   }
 
-  private registerTools(server: ServerConfig, tools: Array<{ name: string; description?: string; inputSchema?: unknown }>): void {
+  private buildHttpConfig(server: ServerConfig): {
+    url: URL;
+    requestInit?: RequestInit;
+    eventSourceInit?: EventSourceInit;
+    authProvider?: StoredOAuthProvider;
+  } {
+    if (!server.url) {
+      throw new Error(`Server ${server.name} is missing url`);
+    }
+    const url = new URL(server.url);
+    const headers: Record<string, string> = {};
+    let authProvider: StoredOAuthProvider | undefined;
+    if (server.auth) {
+      if (server.auth.type === "oauth") {
+        authProvider = new StoredOAuthProvider(this.credentialStore, server.auth);
+      } else {
+        const secret = this.credentialStore.get(server.auth.credentialRef);
+        if (!secret) {
+          throw new Error(`Missing credentials: ${server.auth.credentialRef}`);
+        }
+        if (server.auth.type === "bearer") {
+          headers.Authorization = `Bearer ${secret}`;
+        } else if (server.auth.type === "basic") {
+          const encoded = Buffer.from(secret, "utf8").toString("base64");
+          headers.Authorization = `Basic ${encoded}`;
+        } else if (server.auth.type === "apiKey") {
+          if (server.auth.headerName) {
+            headers[server.auth.headerName] = secret;
+          } else if (server.auth.queryParam) {
+            url.searchParams.set(server.auth.queryParam, secret);
+          } else {
+            headers["x-api-key"] = secret;
+          }
+        }
+      }
+    }
+
+    const requestInit =
+      Object.keys(headers).length > 0 ? { headers } : undefined;
+    const eventSourceInit = this.buildEventSourceInit(headers);
+
+    return { url, requestInit, eventSourceInit, authProvider };
+  }
+
+  private buildEventSourceInit(
+    headers: Record<string, string>,
+  ): EventSourceInit | undefined {
+    if (Object.keys(headers).length === 0) {
+      return undefined;
+    }
+    return {
+      fetch: async (url, init) => {
+        const initHeaders = normalizeHeaders(init?.headers);
+        const mergedHeaders = { ...initHeaders, ...headers };
+        return fetch(url, {
+          ...init,
+          headers: mergedHeaders,
+        });
+      },
+    };
+  }
+
+  private registerTools(
+    server: ServerConfig,
+    tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
+  ): void {
     const allow = server.tools?.allow ?? ["*"];
     const aliasMap = server.tools?.aliases ?? {};
     const aliasByTool = new Map<string, string>();
@@ -232,4 +324,17 @@ export class ToolRegistry {
     this.cache.updatedAt = Date.now();
     fs.writeFileSync(this.cachePath, JSON.stringify(this.cache, null, 2));
   }
+}
+
+function normalizeHeaders(input?: HeadersInit): Record<string, string> {
+  if (!input) {
+    return {};
+  }
+  if (input instanceof Headers) {
+    return Object.fromEntries(input.entries());
+  }
+  if (Array.isArray(input)) {
+    return Object.fromEntries(input);
+  }
+  return { ...input };
 }

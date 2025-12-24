@@ -46,6 +46,18 @@ export class CredentialStore {
     return this.decrypt(row.ciphertext, row.iv, row.tag);
   }
 
+  getJson<T>(ref: string): T | null {
+    const value = this.get(ref);
+    if (!value) {
+      return null;
+    }
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return null;
+    }
+  }
+
   set(ref: string, value: string): void {
     const { ciphertext, iv, tag } = this.encrypt(value);
     const updatedAt = Date.now();
@@ -56,6 +68,10 @@ export class CredentialStore {
           "ON CONFLICT(ref) DO UPDATE SET ciphertext = excluded.ciphertext, iv = excluded.iv, tag = excluded.tag, updated_at = excluded.updated_at",
       )
       .run(ref, ciphertext, iv, tag, updatedAt);
+  }
+
+  setJson(ref: string, value: unknown): void {
+    this.set(ref, JSON.stringify(value));
   }
 
   remove(ref: string): void {
