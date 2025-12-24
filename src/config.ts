@@ -60,6 +60,23 @@ export function resolveManifestPath(
 }
 
 export function loadManifest(manifestPath: string): Manifest {
+  if (!fs.existsSync(manifestPath)) {
+    const dir = path.dirname(manifestPath);
+    fs.mkdirSync(dir, { recursive: true });
+    const defaultManifest: Manifest = {
+      activeProfile: "default",
+      profiles: {
+        default: {
+          servers: [],
+        },
+      },
+    };
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify(defaultManifest, null, 2),
+    );
+    return defaultManifest;
+  }
   const raw = fs.readFileSync(manifestPath, "utf-8");
   return JSON.parse(raw) as Manifest;
 }
