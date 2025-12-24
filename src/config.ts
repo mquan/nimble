@@ -22,7 +22,7 @@ export type ServerConfig = {
   command?: string;
   args?: string[];
   url?: string;
-  tools: ToolConfig;
+  tools?: ToolConfig;
   auth?: AuthConfig;
 };
 

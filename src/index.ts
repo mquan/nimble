@@ -5,6 +5,15 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import path from "node:path";
+import {
+  loadManifest,
+  resolveManifestPath,
+  selectProfile,
+} from "./config.js";
+import { CredentialStore } from "./credentials.js";
+import { ToolRegistry } from "./registry.js";
+
 const TOOL_DEFS = [
   {
     name: "list-available-tools",
@@ -47,6 +56,22 @@ const server = new Server(
   { capabilities: { tools: {} } },
 );
 
+function getArgValue(flag: string): string | undefined {
+  const idx = process.argv.indexOf(flag);
+  if (idx === -1) {
+    return undefined;
+  }
+  return process.argv[idx + 1];
+}
+
+const manifestPath = resolveManifestPath(getArgValue("--manifest"));
+const manifest = loadManifest(manifestPath);
+const profile = selectProfile(manifest, getArgValue("--profile"));
+const credentialStore = new CredentialStore({ manifestPath });
+const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
+const registry = new ToolRegistry(profile, credentialStore, cachePath);
+await registry.initialize();
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: [...TOOL_DEFS] };
 });
@@ -54,36 +79,36 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   if (name === "list-available-tools") {
+    const summaries = registry.listSummaries();
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify([]),
+          text: JSON.stringify(summaries),
         },
       ],
     };
   }
 
   if (name === "get-tool") {
+    const tool = registry.getTool((args?.name as string) ?? "");
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({ tool: null, name: args?.name ?? null }),
+          text: JSON.stringify({ tool, name: args?.name ?? null }),
         },
       ],
     };
   }
 
   if (name === "execute-tool") {
-    return {
-      content: [
-        {
-          type: "text",
-          text: "execute-tool stub: not implemented",
-        },
-      ],
-    };
+    if (!args || typeof args !== "object") {
+      throw new Error("execute-tool requires arguments");
+    }
+    const targetName = args.name as string;
+    const toolArgs = (args.arguments ?? {}) as Record<string, unknown>;
+    return registry.execute(targetName, toolArgs);
   }
 
   throw new Error(`Unknown tool: ${name}`);
