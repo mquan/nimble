@@ -1,0 +1,23 @@
+{
+  "name": "mini-mcp",
+  "version": "0.1.0",
+  "description": "MCP tool router that scales to thousands of tools without the token tax",
+  "author": "Quan Nguyen",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.25.1",
+    "better-sqlite3": "^12.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/better-sqlite3": "^7.6.8",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
