@@ -7,6 +7,7 @@ import {
 
 import path from "node:path";
 import http from "node:http";
+import fs from "node:fs";
 import type {
   OAuthAuthConfig,
   ProfileConfig,
@@ -79,6 +80,11 @@ function normalizeUrl(value: string): string {
 }
 
 const manifestPath = resolveManifestPath(getArgValue("--manifest"));
+const authCommand = process.argv[2];
+if (authCommand === "auth") {
+  await handleAuthCommand(manifestPath);
+  process.exit(0);
+}
 const manifest = loadManifest(manifestPath);
 const profileName = getArgValue("--profile") ?? manifest.activeProfile;
 const profile = selectProfile(manifest, profileName);
@@ -369,4 +375,48 @@ function startLocalCallbackServer(redirectUrl: string): Promise<string> {
     });
     server.listen(Number(url.port), url.hostname);
   });
+}
+
+async function handleAuthCommand(manifestPath: string): Promise<void> {
+  const action = process.argv[3];
+  const ref = process.argv[4];
+  if (!action || !ref) {
+    throw new Error("Usage: mini-mcp auth <set|get|remove|oauth-reset> <ref>");
+  }
+  const store = new CredentialStore({ manifestPath });
+  if (action === "set") {
+    const value = process.argv[5] ?? readStdin().trim();
+    if (!value) {
+      throw new Error("Missing credential value");
+    }
+    store.set(ref, value);
+    console.log(`Saved credential: ${ref}`);
+    return;
+  }
+  if (action === "get") {
+    const value = store.get(ref);
+    if (!value) {
+      console.log("");
+      return;
+    }
+    console.log(value);
+    return;
+  }
+  if (action === "remove") {
+    store.remove(ref);
+    console.log(`Removed credential: ${ref}`);
+    return;
+  }
+  if (action === "oauth-reset") {
+    store.remove(`${ref}:tokens`);
+    store.remove(`${ref}:client`);
+    store.remove(`${ref}:verifier`);
+    console.log(`Reset OAuth credentials: ${ref}`);
+    return;
+  }
+  throw new Error("Unknown auth action");
+}
+
+function readStdin(): string {
+  return fs.readFileSync(0, "utf8");
 }

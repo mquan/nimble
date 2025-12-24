@@ -100,6 +100,18 @@ MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js --server-url http
 ```
 If the server does not exist in the manifest, this will auto-add a default OAuth entry and use a local callback at `http://127.0.0.1:8787/callback`.
 
+## Credential CLI
+```
+MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth set <ref> <value>
+MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth get <ref>
+MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth remove <ref>
+MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth oauth-reset <ref>
+```
+Stdin example:
+```
+echo "my-secret-token" | MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth set remote-token
+```
+
 ## Run (dev)
 ```
 npm run dev
