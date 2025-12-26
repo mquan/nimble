@@ -22,11 +22,36 @@ function formatUpdatedAt(value?: number) {
   return new Date(value).toLocaleString();
 }
 
+function formatTransport(transport: ServerConfig["transport"]) {
+  if (transport === "http") {
+    return "streamableHTTP";
+  }
+  if (transport === "sse") {
+    return "SSE";
+  }
+  return "stdio";
+}
+
+function formatStatus(status?: string) {
+  if (!status) {
+    return "unconnected";
+  }
+  if (status === "ok") {
+    return "connected";
+  }
+  if (status === "down") {
+    return "down";
+  }
+  return status;
+}
 export default function App() {
   const [servers, setServers] = useState<ServerConfig[]>([]);
   const [cache, setCache] = useState<ToolsCache | null>(null);
   const [selected, setSelected] = useState<ServerConfig>(DEFAULT_SERVER);
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState<{
+    message: string;
+    tone: "success" | "error" | "info";
+  } | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [stdioJson, setStdioJson] = useState<string>("");
   const [stdioError, setStdioError] = useState<string>("");
@@ -72,13 +97,13 @@ export default function App() {
 
   async function handleSave() {
     setIsBusy(true);
-    setStatus("");
+    setStatus(null);
     try {
       await saveServer(selected);
-      setStatus("Saved server configuration.");
+      setStatus({ message: "Saved server configuration.", tone: "success" });
       await refreshAll();
     } catch (error) {
-      setStatus((error as Error).message);
+      setStatus({ message: (error as Error).message, tone: "error" });
     } finally {
       setIsBusy(false);
     }
@@ -86,7 +111,7 @@ export default function App() {
 
   async function handleConnect() {
     setIsBusy(true);
-    setStatus("");
+    setStatus(null);
     try {
       await connectServer({
         name: selected.name,
@@ -95,10 +120,10 @@ export default function App() {
         command: selected.command,
         args: selected.args,
       });
-      setStatus("Connected and discovered tools.");
+      setStatus({ message: "Connected and discovered tools.", tone: "success" });
       await refreshAll();
     } catch (error) {
-      setStatus((error as Error).message);
+      setStatus({ message: (error as Error).message, tone: "error" });
     } finally {
       setIsBusy(false);
     }
@@ -106,17 +131,26 @@ export default function App() {
 
   async function handleRemove(name: string) {
     setIsBusy(true);
-    setStatus("");
+    setStatus(null);
     try {
       await removeServer(name);
-      setStatus("Removed server.");
+      setStatus({ message: "Removed server.", tone: "success" });
       await refreshAll();
       setSelected(DEFAULT_SERVER);
     } catch (error) {
-      setStatus((error as Error).message);
+      setStatus({ message: (error as Error).message, tone: "error" });
     } finally {
       setIsBusy(false);
     }
+  }
+
+  function handleNew() {
+    setSelected({
+      ...DEFAULT_SERVER,
+      transport: "http",
+      url: "",
+      tools: { allow: ["*"] },
+    });
   }
 
   function updateSelected<K extends keyof ServerConfig>(
@@ -166,9 +200,14 @@ export default function App() {
         <section className="card list">
           <div className="card-header">
             <h2>Servers</h2>
-            <button className="ghost" onClick={refreshAll} disabled={isBusy}>
-              Refresh
-            </button>
+            <div className="actions">
+              <button className="ghost" onClick={refreshAll} disabled={isBusy}>
+                Refresh
+              </button>
+              <button className="ghost" onClick={handleNew} disabled={isBusy}>
+                New
+              </button>
+            </div>
           </div>
           <div className="server-list">
             {servers.map((server) => (
@@ -182,14 +221,18 @@ export default function App() {
                 onClick={() => setSelected(server)}
               >
                 <div>
-                  <p className="server-name">{server.name}</p>
+                  <div className="server-title">
+                    <p className="server-name">
+                      {server.name || "Unnamed server"}
+                    </p>
+                    <span className="pill">{formatTransport(server.transport)}</span>
+                  </div>
                   <p className="server-meta">
-                    {server.transport}
-                    {server.url ? ` • ${server.url}` : ""}
+                    {server.url && <span className="url">{server.url}</span>}
                   </p>
                 </div>
-                <span className="badge">
-                  {cache?.servers?.[server.name]?.status ?? "unknown"}
+                <span className="badge status">
+                  {formatStatus(cache?.servers?.[server.name]?.status)}
                 </span>
               </button>
             ))}
@@ -216,13 +259,16 @@ export default function App() {
                 </button>
               )}
               <button onClick={handleSave} disabled={isBusy}>
-                Save
+                {selectedIsNew ? "Save" : "Update"}
               </button>
               <button className="primary" onClick={handleConnect} disabled={isBusy}>
                 Connect
               </button>
             </div>
           </div>
+          {!selectedIsNew && (
+            <p className="hint">Editing an existing server will overwrite it on Update.</p>
+          )}
 
           <div className="form-grid">
             <label>
@@ -232,6 +278,7 @@ export default function App() {
                 onChange={(event) => updateSelected("name", event.target.value)}
                 placeholder="notion"
               />
+              <span className="hint">Server names must be unique.</span>
             </label>
             <label>
               Transport
@@ -256,6 +303,7 @@ export default function App() {
                   value={selected.url ?? ""}
                   onChange={(event) => updateSelected("url", event.target.value)}
                   placeholder="https://mcp.example.com/mcp"
+                  disabled={!selectedIsNew}
                 />
               </label>
             )}
@@ -308,7 +356,9 @@ export default function App() {
             </label>
           </div>
 
-          {status && <p className="status">{status}</p>}
+          {status && (
+            <p className={`status ${status.tone}`}>{status.message}</p>
+          )}
         </section>
 
         <section className="card tools">
