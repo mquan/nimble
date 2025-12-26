@@ -178,10 +178,10 @@ export default function App() {
         <div>
           <p className="eyebrow">mini-mcp</p>
           <h1>
-            Manage your MCP servers in one place.
+            Unify all MCP tools in one server and save token cost
           </h1>
           <p className="lede">
-            Unify all MCP tools in one server and save token cost.
+            Configure mini-mcp by connecting to MCP servers.
           </p>
         </div>
         <div className="hero-panel">
