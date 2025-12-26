@@ -78,6 +78,10 @@ export class CredentialStore {
     this.db.prepare("DELETE FROM credentials WHERE ref = ?").run(ref);
   }
 
+  close(): void {
+    this.db.close();
+  }
+
   private ensureSchema(): void {
     this.db.exec(
       "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value BLOB NOT NULL);\n" +
