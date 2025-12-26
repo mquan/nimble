@@ -119,6 +119,13 @@ const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
 const registry = new ToolRegistry(profile, credentialStore, cachePath);
 await registry.initialize();
 
+const uiPort = Number(process.env.MINI_MCP_UI_PORT ?? 3000);
+startHttpServer({
+  port: uiPort,
+  manifestPath,
+  profileName,
+});
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: [...TOOL_DEFS] };
 });
@@ -456,33 +463,73 @@ async function handleConnectCommand(manifestPath: string): Promise<void> {
     throw new Error("connect requires --name");
   }
 
-  const manifest = loadManifest(manifestPath);
-  const profileName = args["--profile"] ?? manifest.activeProfile;
-  const profile = selectProfile(manifest, profileName);
+  const result = await connectAndDiscover(manifestPath, {
+    name,
+    transport: transportArg,
+    url,
+    command,
+    args: commandArgs,
+    profile: args["--profile"],
+  });
+  console.log(
+    `Connected and discovered ${result.allow.length} tools for ${result.server.name}`,
+  );
+}
 
-  const existing = profile.servers.find((entry) => entry.name === name);
-  const transport = transportArg ?? existing?.transport;
+function parseArgs(argv: string[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const key = argv[i];
+    if (!key.startsWith("--")) {
+      continue;
+    }
+    const value = argv[i + 1];
+    if (value && !value.startsWith("--")) {
+      result[key] = value;
+      i += 1;
+    } else {
+      result[key] = "true";
+    }
+  }
+  return result;
+}
+
+type ConnectInput = {
+  name: string;
+  transport?: Transport;
+  url?: string;
+  command?: string;
+  args?: string[];
+  profile?: string;
+};
+
+async function connectAndDiscover(
+  manifestPath: string,
+  input: ConnectInput,
+): Promise<{ server: ServerConfig; allow: string[] }> {
+  const manifest = loadManifest(manifestPath);
+  const profileName = input.profile ?? manifest.activeProfile;
+  const profile = selectProfile(manifest, profileName);
+  const existing = profile.servers.find((entry) => entry.name === input.name);
+  const transport = input.transport ?? existing?.transport;
   if (!transport) {
     throw new Error("connect requires --transport or an existing server entry");
   }
   const server: ServerConfig = {
-    name,
+    name: input.name,
     transport,
-    url: url ?? existing?.url,
-    command: command ?? existing?.command,
-    args: commandArgs ?? existing?.args,
+    url: input.url ?? existing?.url,
+    command: input.command ?? existing?.command,
+    args: input.args ?? existing?.args,
     tools: existing?.tools ?? { allow: ["*"] },
     auth: existing?.auth,
   };
-
   if (transport === "stdio") {
     if (!server.command) {
       throw new Error("stdio connect requires --command");
     }
-  } else {
-    if (!server.url) {
-      throw new Error("http/sse connect requires --server-url");
-    }
+  } else if (!server.url) {
+    throw new Error("http/sse connect requires --server-url");
   }
 
   const credentialStore = new CredentialStore({ manifestPath });
@@ -523,7 +570,7 @@ async function handleConnectCommand(manifestPath: string): Promise<void> {
 
   const allow = tools.map((tool) => tool.name);
   const existingIndex = profile.servers.findIndex((entry) => {
-    if (entry.name === name) {
+    if (entry.name === input.name) {
       return true;
     }
     if (server.url && entry.url) {
@@ -546,28 +593,193 @@ async function handleConnectCommand(manifestPath: string): Promise<void> {
   } else {
     profile.servers.push(entry);
   }
-
   manifest.profiles[profileName] = profile;
   saveManifest(manifestPath, manifest);
-  console.log(`Connected and discovered ${allow.length} tools for ${name}`);
+  return { server: entry, allow };
 }
 
-function parseArgs(argv: string[]): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (let i = 0; i < argv.length; i += 1) {
-    const key = argv[i];
-    if (!key.startsWith("--")) {
-      continue;
+type HttpServerOptions = {
+  port: number;
+  manifestPath: string;
+  profileName: string;
+};
+
+function startHttpServer(options: HttpServerOptions): void {
+  const uiDist = path.join(process.cwd(), "ui", "dist");
+  const server = http.createServer(async (req, res) => {
+    if (!req.url || !req.method) {
+      sendText(res, 400, "Bad request");
+      return;
     }
-    const value = argv[i + 1];
-    if (value && !value.startsWith("--")) {
-      result[key] = value;
-      i += 1;
-    } else {
-      result[key] = "true";
+    const url = new URL(req.url, `http://${req.headers.host ?? "localhost"}`);
+    if (url.pathname.startsWith("/api/")) {
+      try {
+        await handleApiRequest(req, res, url, options.manifestPath, options.profileName);
+      } catch (error) {
+        sendJson(res, 500, { error: (error as Error).message });
+      }
+      return;
     }
+    serveStatic(uiDist, url.pathname, res);
+  });
+
+  server.listen(options.port, () => {
+    console.log(`mini-mcp UI listening on http://127.0.0.1:${options.port}`);
+  });
+}
+
+async function handleApiRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: URL,
+  manifestPath: string,
+  defaultProfile: string,
+): Promise<void> {
+  const profileName = url.searchParams.get("profile") ?? defaultProfile;
+  const manifest = loadManifest(manifestPath);
+  const profile = selectProfile(manifest, profileName);
+
+  if (req.method === "GET" && url.pathname === "/api/servers") {
+    sendJson(res, 200, { servers: profile.servers });
+    return;
   }
-  return result;
+
+  if (req.method === "POST" && url.pathname === "/api/servers") {
+    const body = (await readJsonBody(req)) as ServerConfig;
+    if (!body?.name || !body?.transport) {
+      sendJson(res, 400, { error: "Server requires name and transport" });
+      return;
+    }
+    const idx = profile.servers.findIndex(
+      (entry) => entry.name === body.name || (entry.url && body.url && normalizeUrl(entry.url) === normalizeUrl(body.url)),
+    );
+    if (idx >= 0) {
+      profile.servers[idx] = body;
+    } else {
+      profile.servers.push(body);
+    }
+    manifest.profiles[profileName] = profile;
+    saveManifest(manifestPath, manifest);
+    sendJson(res, 200, { server: body });
+    return;
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/servers/")) {
+    const name = decodeURIComponent(url.pathname.replace("/api/servers/", ""));
+    profile.servers = profile.servers.filter((server) => server.name !== name);
+    manifest.profiles[profileName] = profile;
+    saveManifest(manifestPath, manifest);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/connect") {
+    const body = (await readJsonBody(req)) as ConnectInput;
+    const result = await connectAndDiscover(manifestPath, {
+      ...body,
+      profile: profileName,
+    });
+    sendJson(res, 200, { server: result.server, allow: result.allow });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/tools") {
+    const cache = readToolsCache(manifestPath);
+    if (!cache) {
+      sendJson(res, 404, { error: "tools-cache.json not found" });
+      return;
+    }
+    sendJson(res, 200, cache);
+    return;
+  }
+
+  sendJson(res, 404, { error: "Not found" });
+}
+
+function readToolsCache(manifestPath: string): unknown | null {
+  const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
+  if (!fs.existsSync(cachePath)) {
+    return null;
+  }
+  const raw = fs.readFileSync(cachePath, "utf-8");
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(chunk as Buffer);
+  }
+  if (chunks.length === 0) {
+    return {};
+  }
+  const body = Buffer.concat(chunks).toString("utf8");
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error("Invalid JSON body");
+  }
+}
+
+function sendJson(res: http.ServerResponse, code: number, payload: unknown): void {
+  res.statusCode = code;
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify(payload));
+}
+
+function sendText(res: http.ServerResponse, code: number, text: string): void {
+  res.statusCode = code;
+  res.setHeader("Content-Type", "text/plain");
+  res.end(text);
+}
+
+function serveStatic(baseDir: string, requestPath: string, res: http.ServerResponse): void {
+  const normalizedPath = requestPath === "/" ? "/index.html" : requestPath;
+  const safePath = path.normalize(normalizedPath).replace(/^(\.\.[/\\])+/, "");
+  const fullPath = path.join(baseDir, safePath);
+  if (!fullPath.startsWith(baseDir)) {
+    sendText(res, 403, "Forbidden");
+    return;
+  }
+  if (!fs.existsSync(fullPath)) {
+    const indexPath = path.join(baseDir, "index.html");
+    if (fs.existsSync(indexPath)) {
+      sendFile(indexPath, res);
+      return;
+    }
+    sendText(res, 404, "UI not built. Run npm run ui:build.");
+    return;
+  }
+  sendFile(fullPath, res);
+}
+
+function sendFile(filePath: string, res: http.ServerResponse): void {
+  const ext = path.extname(filePath);
+  const type = mimeType(ext);
+  res.statusCode = 200;
+  res.setHeader("Content-Type", type);
+  fs.createReadStream(filePath).pipe(res);
+}
+
+function mimeType(ext: string): string {
+  switch (ext) {
+    case ".html":
+      return "text/html";
+    case ".js":
+      return "application/javascript";
+    case ".css":
+      return "text/css";
+    case ".svg":
+      return "image/svg+xml";
+    case ".json":
+      return "application/json";
+    default:
+      return "application/octet-stream";
+  }
 }
 
 async function runOAuthFlow(

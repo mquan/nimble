@@ -124,6 +124,19 @@ MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js connect --name re
 npm run dev
 ```
 
+## Config UI
+The server also hosts a local config UI on `http://127.0.0.1:3000`.
+
+Build UI once:
+```
+npm run ui:build
+```
+
+Run UI dev server:
+```
+npm run ui:dev
+```
+
 ## MCP Client Config
 mini-mcp runs over stdio. Configure your MCP client to launch it:
 ```
