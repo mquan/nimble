@@ -80,9 +80,13 @@ function normalizeUrl(value: string): string {
 }
 
 const manifestPath = resolveManifestPath(getArgValue("--manifest"));
-const authCommand = process.argv[2];
-if (authCommand === "auth") {
+const primaryCommand = process.argv[2];
+if (primaryCommand === "auth") {
   await handleAuthCommand(manifestPath);
+  process.exit(0);
+}
+if (primaryCommand === "discover" || primaryCommand === "connect") {
+  await handleConnectCommand(manifestPath);
   process.exit(0);
 }
 const manifest = loadManifest(manifestPath);
@@ -106,37 +110,7 @@ if (oauthServerName || oauthServerUrl) {
     manifestPath,
     selection,
   );
-  assertOAuthServerConfig(resolvedServer);
-  console.log(
-    `Starting OAuth flow for ${resolvedServer.name} (${resolvedServer.url})`,
-  );
-  const credentialStore = new CredentialStore({ manifestPath });
-  const provider = new StoredOAuthProvider(credentialStore, resolvedServer.auth);
-  if (oauthCode) {
-    const result = await auth(provider, {
-      serverUrl: resolvedServer.url,
-      authorizationCode: oauthCode,
-      scope: resolvedServer.auth.scope,
-    });
-    console.log(`OAuth result: ${result}`);
-  } else {
-    const redirectUrl = getRedirectUrl(resolvedServer);
-    const codePromise = startLocalCallbackServer(redirectUrl);
-    const result = await auth(provider, {
-      serverUrl: resolvedServer.url,
-      scope: resolvedServer.auth.scope,
-    });
-    console.log(`OAuth result: ${result}`);
-    if (result === "REDIRECT") {
-      const code = await codePromise;
-      const finalResult = await auth(provider, {
-        serverUrl: resolvedServer.url,
-        authorizationCode: code,
-        scope: resolvedServer.auth.scope,
-      });
-      console.log(`OAuth result: ${finalResult}`);
-    }
-  }
+  await runOAuthFlow(resolvedServer, manifestPath, oauthCode);
   process.exit(0);
 }
 
@@ -218,6 +192,20 @@ function ensureOAuthServer(
 ): ServerConfig {
   const existing = findServer(profile, selection);
   if (existing) {
+    if (existing.auth?.type === "oauth") {
+      return existing;
+    }
+    if (!selection.url) {
+      throw new Error(
+        `OAuth server not found: ${selection.name ?? "unknown"}. Add a matching server entry to the manifest.`,
+      );
+    }
+    const redirectUrl = "http://127.0.0.1:8787/callback";
+    existing.auth = buildOAuthAuth(existing.name, redirectUrl);
+    existing.url = existing.url ?? selection.url;
+    existing.transport = existing.transport ?? selection.transport ?? "http";
+    manifest.profiles[profileName] = profile;
+    saveManifest(manifestPath, manifest);
     return existing;
   }
   if (!selection.url) {
@@ -226,33 +214,50 @@ function ensureOAuthServer(
       `OAuth server not found: ${target}. Add a matching server entry to the manifest.`,
     );
   }
+  const urlMatch = findServerByUrl(profile, selection.url);
+  if (urlMatch) {
+    if (urlMatch.auth?.type !== "oauth") {
+      urlMatch.auth = buildOAuthAuth(
+        urlMatch.name,
+        "http://127.0.0.1:8787/callback",
+      );
+    }
+    urlMatch.transport = urlMatch.transport ?? selection.transport ?? "http";
+    urlMatch.url = selection.url;
+    manifest.profiles[profileName] = profile;
+    saveManifest(manifestPath, manifest);
+    return urlMatch;
+  }
   const url = normalizeUrl(selection.url);
   const name = buildServerName(url, profile.servers.map((server) => server.name));
   const transport: Transport = selection.transport ?? "http";
-  const redirectUrl = "http://127.0.0.1:8787/callback";
-  const credentialRef = `${name}-oauth`;
   const server: ServerConfig = {
     name,
     transport,
     url: selection.url,
     tools: { allow: ["*"] },
-    auth: {
-      type: "oauth",
-      credentialRef,
-      redirectUrl,
-      clientMetadata: {
-        client_name: "mini-mcp",
-        redirect_uris: [redirectUrl],
-        grant_types: ["authorization_code", "refresh_token"],
-        response_types: ["code"],
-        token_endpoint_auth_method: "none",
-      },
-    },
+    auth: buildOAuthAuth(name, "http://127.0.0.1:8787/callback"),
   };
   profile.servers.push(server);
   manifest.profiles[profileName] = profile;
   saveManifest(manifestPath, manifest);
   return server;
+}
+
+function buildOAuthAuth(name: string, redirectUrl: string): OAuthAuthConfig {
+  const credentialRef = `${name}-oauth`;
+  return {
+    type: "oauth",
+    credentialRef,
+    redirectUrl,
+    clientMetadata: {
+      client_name: "mini-mcp",
+      redirect_uris: [redirectUrl],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+    },
+  };
 }
 
 function assertOAuthServerConfig(
@@ -299,6 +304,24 @@ function findServer(
   return profile.servers.find((server) =>
     matchesServer(server, selection, normalizedTargetUrl),
   );
+}
+
+function findServerByUrl(
+  profile: ProfileConfig,
+  url: string,
+): ServerConfig | undefined {
+  const normalizedTargetUrl = normalizeUrl(url);
+  return profile.servers.find((server) => {
+    if (!server.url) {
+      return false;
+    }
+    const normalizedServerUrl = normalizeUrl(server.url);
+    return (
+      normalizedServerUrl === normalizedTargetUrl ||
+      normalizedServerUrl.startsWith(normalizedTargetUrl) ||
+      normalizedTargetUrl.startsWith(normalizedServerUrl)
+    );
+  });
 }
 
 function matchesServer(
@@ -419,4 +442,176 @@ async function handleAuthCommand(manifestPath: string): Promise<void> {
 
 function readStdin(): string {
   return fs.readFileSync(0, "utf8");
+}
+
+async function handleConnectCommand(manifestPath: string): Promise<void> {
+  const args = parseArgs(process.argv.slice(3));
+  const name = args["--name"];
+  const url = args["--server-url"];
+  const transportArg = normalizeTransport(args["--transport"]);
+  const command = args["--command"];
+  const commandArgs = args["--args"]?.split(",").filter(Boolean);
+
+  if (!name) {
+    throw new Error("connect requires --name");
+  }
+
+  const manifest = loadManifest(manifestPath);
+  const profileName = args["--profile"] ?? manifest.activeProfile;
+  const profile = selectProfile(manifest, profileName);
+
+  const existing = profile.servers.find((entry) => entry.name === name);
+  const transport = transportArg ?? existing?.transport;
+  if (!transport) {
+    throw new Error("connect requires --transport or an existing server entry");
+  }
+  const server: ServerConfig = {
+    name,
+    transport,
+    url: url ?? existing?.url,
+    command: command ?? existing?.command,
+    args: commandArgs ?? existing?.args,
+    tools: existing?.tools ?? { allow: ["*"] },
+    auth: existing?.auth,
+  };
+
+  if (transport === "stdio") {
+    if (!server.command) {
+      throw new Error("stdio connect requires --command");
+    }
+  } else {
+    if (!server.url) {
+      throw new Error("http/sse connect requires --server-url");
+    }
+  }
+
+  const credentialStore = new CredentialStore({ manifestPath });
+  const registry = new ToolRegistry(profile, credentialStore);
+  let tools: Array<{ name: string; description?: string; inputSchema?: unknown }>;
+  let activeServer = server;
+  try {
+    tools = await registry.discoverServerTools(activeServer);
+  } catch (error) {
+    if (isUnauthorizedError(error)) {
+      if (activeServer.auth?.type === "oauth") {
+        await runOAuthFlow(activeServer, manifestPath);
+      } else if (
+        activeServer.url &&
+        (activeServer.transport === "http" || activeServer.transport === "sse")
+      ) {
+        const selection: OAuthSelection = {
+          name: activeServer.name,
+          url: activeServer.url,
+          transport: activeServer.transport,
+        };
+        activeServer = ensureOAuthServer(
+          manifest,
+          profile,
+          profileName,
+          manifestPath,
+          selection,
+        );
+        await runOAuthFlow(activeServer, manifestPath);
+      } else {
+        throw error;
+      }
+      tools = await registry.discoverServerTools(activeServer);
+    } else {
+      throw error;
+    }
+  }
+
+  const allow = tools.map((tool) => tool.name);
+  const existingIndex = profile.servers.findIndex((entry) => {
+    if (entry.name === name) {
+      return true;
+    }
+    if (server.url && entry.url) {
+      const normalizedServerUrl = normalizeUrl(server.url);
+      const normalizedEntryUrl = normalizeUrl(entry.url);
+      return (
+        normalizedServerUrl === normalizedEntryUrl ||
+        normalizedServerUrl.startsWith(normalizedEntryUrl) ||
+        normalizedEntryUrl.startsWith(normalizedServerUrl)
+      );
+    }
+    return false;
+  });
+  const entry: ServerConfig = {
+    ...activeServer,
+    tools: { allow },
+  };
+  if (existingIndex >= 0) {
+    profile.servers[existingIndex] = entry;
+  } else {
+    profile.servers.push(entry);
+  }
+
+  manifest.profiles[profileName] = profile;
+  saveManifest(manifestPath, manifest);
+  console.log(`Connected and discovered ${allow.length} tools for ${name}`);
+}
+
+function parseArgs(argv: string[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const key = argv[i];
+    if (!key.startsWith("--")) {
+      continue;
+    }
+    const value = argv[i + 1];
+    if (value && !value.startsWith("--")) {
+      result[key] = value;
+      i += 1;
+    } else {
+      result[key] = "true";
+    }
+  }
+  return result;
+}
+
+async function runOAuthFlow(
+  server: ServerConfig,
+  manifestPath: string,
+  oauthCode?: string,
+): Promise<void> {
+  assertOAuthServerConfig(server);
+  console.log(`Starting OAuth flow for ${server.name} (${server.url})`);
+  const credentialStore = new CredentialStore({ manifestPath });
+  const provider = new StoredOAuthProvider(credentialStore, server.auth);
+  if (oauthCode) {
+    const result = await auth(provider, {
+      serverUrl: server.url,
+      authorizationCode: oauthCode,
+      scope: server.auth.scope,
+    });
+    console.log(`OAuth result: ${result}`);
+    return;
+  }
+  const redirectUrl = getRedirectUrl(server);
+  const codePromise = startLocalCallbackServer(redirectUrl);
+  const result = await auth(provider, {
+    serverUrl: server.url,
+    scope: server.auth.scope,
+  });
+  console.log(`OAuth result: ${result}`);
+  if (result === "REDIRECT") {
+    const code = await codePromise;
+    const finalResult = await auth(provider, {
+      serverUrl: server.url,
+      authorizationCode: code,
+      scope: server.auth.scope,
+    });
+    console.log(`OAuth result: ${finalResult}`);
+  }
+}
+
+function isUnauthorizedError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  if ("code" in error && (error as { code?: number }).code === 401) {
+    return true;
+  }
+  return false;
 }

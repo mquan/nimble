@@ -112,6 +112,13 @@ Stdin example:
 echo "my-secret-token" | MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth set remote-token
 ```
 
+## Connect CLI
+```
+MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js connect --name local --transport stdio --command node --args ./server.js
+MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js connect --name remote --transport streamableHttp --server-url https://mcp.example.com/mcp
+```
+`discover` is an alias for `connect`.
+
 ## Run (dev)
 ```
 npm run dev

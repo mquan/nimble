@@ -62,6 +62,15 @@ export class ToolRegistry {
     this.persistCache();
   }
 
+  async discoverServerTools(
+    server: ServerConfig,
+  ): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>> {
+    const client = await this.connectClient(server);
+    const tools = await client.listTools();
+    await client.close();
+    return tools.tools ?? [];
+  }
+
   listSummaries(): { name: string; summary: string }[] {
     return [...this.tools.values()].map((entry) => ({
       name: entry.publicName,
