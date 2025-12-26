@@ -82,7 +82,8 @@ h1 {
   border: 1px solid var(--outline);
   padding: 18px 24px;
   border-radius: 18px;
-  min-width: 220px;
+  min-width: 260px;
+  width: 260px;
   box-shadow: var(--shadow);
   display: grid;
   gap: 12px;

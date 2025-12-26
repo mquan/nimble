@@ -56,6 +56,15 @@ export default function App() {
   const [stdioJson, setStdioJson] = useState<string>("");
   const [stdioError, setStdioError] = useState<string>("");
 
+  const totalTools = useMemo(() => {
+    if (!cache?.servers) {
+      return 0;
+    }
+    return Object.values(cache.servers).reduce((sum, entry) => {
+      return sum + (entry.tools?.length ?? 0);
+    }, 0);
+  }, [cache]);
+
   const selectedIsNew = useMemo(() => {
     return !servers.find((server) => server.name === selected.name);
   }, [servers, selected.name]);
@@ -169,11 +178,10 @@ export default function App() {
         <div>
           <p className="eyebrow">mini-mcp</p>
           <h1>
-            Configure local MCP servers and browse available tools.
+            Manage your MCP servers in one place.
           </h1>
           <p className="lede">
-            A lightweight control room for routing tool traffic without the
-            token tax.
+            Unify all MCP tools in one server and save token cost.
           </p>
         </div>
         <div className="hero-panel">
@@ -182,12 +190,12 @@ export default function App() {
             <p className="panel-value">{servers.length}</p>
           </div>
           <div>
-            <p className="panel-label">Token savings</p>
-            <p className="panel-value highlight">Coming soon</p>
+            <p className="panel-label">Tools</p>
+            <p className="panel-value">{totalTools}</p>
           </div>
           <div>
-            <p className="panel-label">Status</p>
-            <p className="panel-value">{isBusy ? "Working" : "Idle"}</p>
+            <p className="panel-label">Token savings</p>
+            <p className="panel-value highlight">Coming soon</p>
           </div>
           <div>
             <p className="panel-label">Last tool sync</p>
