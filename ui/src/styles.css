@@ -102,6 +102,10 @@ h1 {
   margin: 2px 0 0;
 }
 
+.panel-value.highlight {
+  color: #2a9d4b;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -203,6 +207,16 @@ select {
   background: #fffdf9;
 }
 
+textarea {
+  border-radius: 12px;
+  border: 1px solid var(--outline);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fffdf9;
+  resize: vertical;
+}
+
 .wide {
   grid-column: 1 / -1;
 }
@@ -254,6 +268,12 @@ button:hover:not(:disabled) {
   border-radius: 12px;
   background: rgba(255, 111, 61, 0.12);
   color: var(--accent-dark);
+}
+
+.error {
+  color: #b5332e;
+  font-size: 0.8rem;
+  margin-top: 6px;
 }
 
 .tools-grid {

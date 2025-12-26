@@ -124,6 +124,21 @@ MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js connect --name re
 npm run dev
 ```
 
+## Scripts
+Server:
+```
+npm run build
+npm run dev
+npm test
+```
+
+UI:
+```
+npm run ui:build
+npm run ui:dev
+npm run ui:preview
+```
+
 ## Config UI
 The server also hosts a local config UI on `http://127.0.0.1:3000`.
 

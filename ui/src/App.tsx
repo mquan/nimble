@@ -28,6 +28,8 @@ export default function App() {
   const [selected, setSelected] = useState<ServerConfig>(DEFAULT_SERVER);
   const [status, setStatus] = useState<string>("");
   const [isBusy, setIsBusy] = useState(false);
+  const [stdioJson, setStdioJson] = useState<string>("");
+  const [stdioError, setStdioError] = useState<string>("");
 
   const selectedIsNew = useMemo(() => {
     return !servers.find((server) => server.name === selected.name);
@@ -36,6 +38,20 @@ export default function App() {
   useEffect(() => {
     void refreshAll();
   }, []);
+
+  useEffect(() => {
+    if (selected.transport !== "stdio") {
+      setStdioJson("");
+      setStdioError("");
+      return;
+    }
+    const payload = {
+      command: selected.command ?? "",
+      args: selected.args ?? [],
+    };
+    setStdioJson(JSON.stringify(payload, null, 2));
+    setStdioError("");
+  }, [selected.command, selected.args, selected.transport]);
 
   async function refreshAll() {
     setIsBusy(true);
@@ -128,16 +144,20 @@ export default function App() {
         </div>
         <div className="hero-panel">
           <div>
-            <p className="panel-label">Last tool sync</p>
-            <p className="panel-value">{formatUpdatedAt(cache?.updatedAt)}</p>
-          </div>
-          <div>
             <p className="panel-label">Servers</p>
             <p className="panel-value">{servers.length}</p>
           </div>
           <div>
+            <p className="panel-label">Token savings</p>
+            <p className="panel-value highlight">Coming soon</p>
+          </div>
+          <div>
             <p className="panel-label">Status</p>
             <p className="panel-value">{isBusy ? "Working" : "Idle"}</p>
+          </div>
+          <div>
+            <p className="panel-label">Last tool sync</p>
+            <p className="panel-value">{formatUpdatedAt(cache?.updatedAt)}</p>
           </div>
         </div>
       </header>
@@ -229,40 +249,48 @@ export default function App() {
                 <option value="stdio">stdio</option>
               </select>
             </label>
-            <label className="wide">
-              URL
-              <input
-                value={selected.url ?? ""}
-                onChange={(event) => updateSelected("url", event.target.value)}
-                placeholder="https://mcp.example.com/mcp"
-              />
-            </label>
-            <label className="wide">
-              Command
-              <input
-                value={selected.command ?? ""}
-                onChange={(event) =>
-                  updateSelected("command", event.target.value)
-                }
-                placeholder="node"
-              />
-            </label>
-            <label className="wide">
-              Args (comma separated)
-              <input
-                value={selected.args?.join(",") ?? ""}
-                onChange={(event) =>
-                  updateSelected(
-                    "args",
-                    event.target.value
-                      .split(",")
-                      .map((value) => value.trim())
-                      .filter(Boolean),
-                  )
-                }
-                placeholder="./server.js"
-              />
-            </label>
+            {selected.transport !== "stdio" && (
+              <label className="wide">
+                URL
+                <input
+                  value={selected.url ?? ""}
+                  onChange={(event) => updateSelected("url", event.target.value)}
+                  placeholder="https://mcp.example.com/mcp"
+                />
+              </label>
+            )}
+            {selected.transport === "stdio" && (
+              <label className="wide">
+                Stdio config (JSON)
+                <textarea
+                  value={stdioJson}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setStdioJson(next);
+                    try {
+                      const parsed = JSON.parse(next) as {
+                        command?: string;
+                        args?: string[];
+                      };
+                      if (typeof parsed.command !== "string") {
+                        throw new Error("command must be a string");
+                      }
+                      if (parsed.args && !Array.isArray(parsed.args)) {
+                        throw new Error("args must be an array");
+                      }
+                      updateSelected("command", parsed.command);
+                      updateSelected("args", parsed.args ?? []);
+                      setStdioError("");
+                    } catch (error) {
+                      setStdioError((error as Error).message);
+                    }
+                  }}
+                  placeholder='{"command":"node","args":["./server.js"]}'
+                  rows={6}
+                />
+                {stdioError && <span className="error">{stdioError}</span>}
+              </label>
+            )}
             <label className="wide">
               Allowlist
               <input
@@ -322,6 +350,7 @@ export default function App() {
             )}
           </div>
         </section>
+
       </main>
     </div>
   );
