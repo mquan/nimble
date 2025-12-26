@@ -92,6 +92,7 @@ if (primaryCommand === "discover" || primaryCommand === "connect") {
 const manifest = loadManifest(manifestPath);
 const profileName = getArgValue("--profile") ?? manifest.activeProfile;
 const profile = selectProfile(manifest, profileName);
+pruneToolsCache(manifestPath, profile);
 
 const oauthServerName = getArgValue("--oauth-server");
 const oauthServerUrl = getArgValue("--server-url");
@@ -569,6 +570,7 @@ async function connectAndDiscover(
   }
 
   const allow = tools.map((tool) => tool.name);
+  updateToolsCache(manifestPath, activeServer.name, tools);
   const existingIndex = profile.servers.findIndex((entry) => {
     if (entry.name === input.name) {
       return true;
@@ -669,6 +671,7 @@ async function handleApiRequest(
     profile.servers = profile.servers.filter((server) => server.name !== name);
     manifest.profiles[profileName] = profile;
     saveManifest(manifestPath, manifest);
+    removeToolsCacheEntry(manifestPath, name);
     sendJson(res, 200, { ok: true });
     return;
   }
@@ -706,6 +709,62 @@ function readToolsCache(manifestPath: string): unknown | null {
     return JSON.parse(raw);
   } catch {
     return null;
+  }
+}
+
+type ToolsCache = {
+  updatedAt: number;
+  servers: Record<
+    string,
+    {
+      status: "ok" | "down";
+      error?: string;
+      tools?: Array<{ name: string; description?: string; inputSchema?: unknown }>;
+    }
+  >;
+};
+
+function updateToolsCache(
+  manifestPath: string,
+  serverName: string,
+  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
+): void {
+  const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
+  const existing = readToolsCache(manifestPath) as ToolsCache | null;
+  const cache: ToolsCache = existing ?? { updatedAt: Date.now(), servers: {} };
+  cache.servers[serverName] = { status: "ok", tools };
+  cache.updatedAt = Date.now();
+  fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
+}
+
+function removeToolsCacheEntry(manifestPath: string, serverName: string): void {
+  const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
+  const existing = readToolsCache(manifestPath) as ToolsCache | null;
+  if (!existing?.servers?.[serverName]) {
+    return;
+  }
+  delete existing.servers[serverName];
+  existing.updatedAt = Date.now();
+  fs.writeFileSync(cachePath, JSON.stringify(existing, null, 2));
+}
+
+function pruneToolsCache(manifestPath: string, profile: ProfileConfig): void {
+  const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
+  const existing = readToolsCache(manifestPath) as ToolsCache | null;
+  if (!existing?.servers) {
+    return;
+  }
+  const allowed = new Set(profile.servers.map((server) => server.name));
+  let changed = false;
+  for (const name of Object.keys(existing.servers)) {
+    if (!allowed.has(name)) {
+      delete existing.servers[name];
+      changed = true;
+    }
+  }
+  if (changed) {
+    existing.updatedAt = Date.now();
+    fs.writeFileSync(cachePath, JSON.stringify(existing, null, 2));
   }
 }
 

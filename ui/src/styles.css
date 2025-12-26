@@ -221,6 +221,24 @@ h1 {
   font-size: 0.72rem;
 }
 
+.badge.status.connected {
+  background: rgba(59, 122, 87, 0.14);
+  border-color: rgba(59, 122, 87, 0.4);
+  color: #2c5d41;
+}
+
+.badge.status.down {
+  background: rgba(224, 86, 74, 0.16);
+  border-color: rgba(224, 86, 74, 0.5);
+  color: #a23a31;
+}
+
+.badge.status.unconnected {
+  background: rgba(30, 27, 22, 0.06);
+  border-color: var(--outline);
+  color: var(--muted);
+}
+
 .form-grid {
   display: grid;
   gap: 14px;

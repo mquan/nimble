@@ -44,6 +44,23 @@ function formatStatus(status?: string) {
   }
   return status;
 }
+
+function statusClass(status?: string) {
+  const label = formatStatus(status);
+  return label;
+}
+
+function uniqueTools(
+  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
+) {
+  const seen = new Map<string, { name: string; description?: string; inputSchema?: unknown }>();
+  for (const tool of tools) {
+    if (!seen.has(tool.name)) {
+      seen.set(tool.name, tool);
+    }
+  }
+  return [...seen.values()];
+}
 export default function App() {
   const [servers, setServers] = useState<ServerConfig[]>([]);
   const [cache, setCache] = useState<ToolsCache | null>(null);
@@ -61,7 +78,7 @@ export default function App() {
       return 0;
     }
     return Object.values(cache.servers).reduce((sum, entry) => {
-      return sum + (entry.tools?.length ?? 0);
+      return sum + uniqueTools(entry.tools ?? []).length;
     }, 0);
   }, [cache]);
 
@@ -239,7 +256,7 @@ export default function App() {
                     {server.url && <span className="url">{server.url}</span>}
                   </p>
                 </div>
-                <span className="badge status">
+                <span className={`badge status ${statusClass(cache?.servers?.[server.name]?.status)}`}>
                   {formatStatus(cache?.servers?.[server.name]?.status)}
                 </span>
               </button>
@@ -389,12 +406,12 @@ export default function App() {
                     <span className="count">{info.tools?.length ?? 0}</span>
                   </div>
                   <ul>
-                    {(info.tools ?? []).slice(0, 12).map((tool) => (
+                    {uniqueTools(info.tools ?? []).slice(0, 12).map((tool) => (
                       <li key={tool.name}>{tool.name}</li>
                     ))}
-                    {(info.tools?.length ?? 0) > 12 && (
+                    {uniqueTools(info.tools ?? []).length > 12 && (
                       <li className="muted">
-                        +{(info.tools?.length ?? 0) - 12} more
+                        +{uniqueTools(info.tools ?? []).length - 12} more
                       </li>
                     )}
                   </ul>
