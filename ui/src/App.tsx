@@ -204,7 +204,7 @@ export default function App() {
               <button className="ghost" onClick={refreshAll} disabled={isBusy}>
                 Refresh
               </button>
-              <button className="ghost" onClick={handleNew} disabled={isBusy}>
+              <button className="primary" onClick={handleNew} disabled={isBusy}>
                 New
               </button>
             </div>
@@ -258,7 +258,7 @@ export default function App() {
                   Remove
                 </button>
               )}
-              <button onClick={handleSave} disabled={isBusy}>
+              <button className="ghost" onClick={handleSave} disabled={isBusy}>
                 {selectedIsNew ? "Save" : "Update"}
               </button>
               <button className="primary" onClick={handleConnect} disabled={isBusy}>

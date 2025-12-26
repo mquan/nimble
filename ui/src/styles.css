@@ -7,8 +7,8 @@
   --card: #fff8f0;
   --ink: #1e1b16;
   --muted: #6b5f52;
-  --accent: #ff6f3d;
-  --accent-dark: #df4a1b;
+  --accent: #3b7a57;
+  --accent-dark: #2c5d41;
   --outline: #e2d4c4;
   --shadow: 0 18px 40px rgba(62, 47, 32, 0.18);
 }
@@ -164,7 +164,7 @@ h1 {
 
 .server-item.active {
   border-color: var(--accent);
-  box-shadow: 0 10px 24px rgba(255, 111, 61, 0.18);
+  box-shadow: 0 10px 24px rgba(59, 122, 87, 0.2);
 }
 
 .server-name {
@@ -289,7 +289,7 @@ button.ghost {
 }
 
 button.danger {
-  background: #3f2620;
+  background: #e0564a;
 }
 
 button:disabled {
@@ -311,8 +311,8 @@ button:hover:not(:disabled) {
 }
 
 .status.success {
-  background: rgba(42, 157, 75, 0.16);
-  color: #1f7f3a;
+  background: rgba(59, 122, 87, 0.18);
+  color: #2c5d41;
 }
 
 .status.error {
