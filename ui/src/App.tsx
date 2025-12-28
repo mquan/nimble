@@ -229,6 +229,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!toolDetail) {
+      return;
+    }
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setToolDetail(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
+  }, [toolDetail]);
+
+  useEffect(() => {
     if (selected.transport !== "stdio") {
       setStdioJson("");
       setStdioError("");
