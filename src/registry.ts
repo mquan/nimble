@@ -1,13 +1,13 @@
-import fs from "node:fs";
 import { Buffer } from "node:buffer";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-import type { ProfileConfig, ServerConfig } from "./config.js";
+import type { ServerConfig } from "./config.js";
 import type { CredentialStore } from "./credentials.js";
 import { StoredOAuthProvider } from "./oauth.js";
+import type { ConfigStore } from "./store.js";
 import type { EventSourceInit } from "eventsource";
 
 type ServerStatus = {
@@ -23,43 +23,29 @@ type ToolEntry = {
   downstreamName: string;
 };
 
-type ToolsCache = {
-  updatedAt: number;
-  servers: Record<
-    string,
-    {
-      status: "ok" | "down";
-      error?: string;
-      tools?: unknown[];
-    }
-  >;
-};
-
 export class ToolRegistry {
-  private profile: ProfileConfig;
+  private profileName: string;
+  private store: ConfigStore;
   private credentialStore: CredentialStore;
-  private cachePath?: string;
-  private cache: ToolsCache | null = null;
   private clients = new Map<string, Client>();
   private tools = new Map<string, ToolEntry>();
   private status = new Map<string, ServerStatus>();
 
   constructor(
-    profile: ProfileConfig,
+    profileName: string,
+    store: ConfigStore,
     credentialStore: CredentialStore,
-    cachePath?: string,
   ) {
-    this.profile = profile;
+    this.profileName = profileName;
+    this.store = store;
     this.credentialStore = credentialStore;
-    this.cachePath = cachePath;
   }
 
   async initialize(): Promise<void> {
-    this.cache = this.loadCache();
-    for (const server of this.profile.servers) {
+    const servers = this.store.listServers(this.profileName);
+    for (const server of servers) {
       await this.loadServer(server);
     }
-    this.persistCache();
   }
 
   async discoverServerTools(
@@ -113,12 +99,18 @@ export class ToolRegistry {
       this.clients.set(server.name, client);
       this.status.set(server.name, { status: "ok" });
       this.registerTools(server, tools.tools ?? []);
-      this.updateCache(server.name, "ok", tools.tools ?? []);
+      this.store.upsertToolsCache(this.profileName, server.name, {
+        status: "ok",
+        tools: tools.tools ?? [],
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown error";
       this.status.set(server.name, { status: "down", error: message });
-      this.updateCache(server.name, "down", undefined, message);
+      this.store.upsertToolsCache(this.profileName, server.name, {
+        status: "down",
+        error: message,
+      });
       console.error(`Server ${server.name} failed: ${message}`);
     }
   }
@@ -294,45 +286,6 @@ export class ToolRegistry {
     return allow.includes(toolName);
   }
 
-  private loadCache(): ToolsCache | null {
-    if (!this.cachePath) {
-      return null;
-    }
-    if (!fs.existsSync(this.cachePath)) {
-      return { updatedAt: Date.now(), servers: {} };
-    }
-    const raw = fs.readFileSync(this.cachePath, "utf-8");
-    try {
-      const parsed = JSON.parse(raw) as ToolsCache;
-      return parsed;
-    } catch {
-      return { updatedAt: Date.now(), servers: {} };
-    }
-  }
-
-  private updateCache(
-    serverName: string,
-    status: "ok" | "down",
-    tools?: unknown[],
-    error?: string,
-  ): void {
-    if (!this.cache) {
-      return;
-    }
-    this.cache.servers[serverName] = {
-      status,
-      error,
-      tools,
-    };
-  }
-
-  private persistCache(): void {
-    if (!this.cache || !this.cachePath) {
-      return;
-    }
-    this.cache.updatedAt = Date.now();
-    fs.writeFileSync(this.cachePath, JSON.stringify(this.cache, null, 2));
-  }
 }
 
 function normalizeHeaders(input?: HeadersInit): Record<string, string> {

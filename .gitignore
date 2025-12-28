@@ -3,3 +3,5 @@ dist/
 ui/dist/
 .DS_Store
 PLAN.md
+mini-mcp.sqlite
+credentials.sqlite

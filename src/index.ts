@@ -8,22 +8,13 @@ import {
 import path from "node:path";
 import http from "node:http";
 import fs from "node:fs";
-import type {
-  OAuthAuthConfig,
-  ProfileConfig,
-  ServerConfig,
-  Transport,
-} from "./config.js";
-import {
-  loadManifest,
-  resolveManifestPath,
-  saveManifest,
-  selectProfile,
-} from "./config.js";
+import type { OAuthAuthConfig, ServerConfig, Transport } from "./config.js";
+import { resolveDbPath } from "./config.js";
 import { CredentialStore } from "./credentials.js";
 import { StoredOAuthProvider } from "./oauth.js";
 import { ToolRegistry } from "./registry.js";
 import { auth } from "@modelcontextprotocol/sdk/client/auth.js";
+import { ConfigStore } from "./store.js";
 
 const TOOL_DEFS = [
   {
@@ -79,20 +70,18 @@ function normalizeUrl(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-const manifestPath = resolveManifestPath(getArgValue("--manifest"));
+const dbPath = resolveDbPath(getArgValue("--db"));
+const store = new ConfigStore(dbPath);
 const primaryCommand = process.argv[2];
 if (primaryCommand === "auth") {
-  await handleAuthCommand(manifestPath);
+  await handleAuthCommand(dbPath);
   process.exit(0);
 }
 if (primaryCommand === "discover" || primaryCommand === "connect") {
-  await handleConnectCommand(manifestPath);
+  await handleConnectCommand(dbPath);
   process.exit(0);
 }
-const manifest = loadManifest(manifestPath);
-const profileName = getArgValue("--profile") ?? manifest.activeProfile;
-const profile = selectProfile(manifest, profileName);
-pruneToolsCache(manifestPath, profile);
+const profileName = getArgValue("--profile") ?? store.getActiveProfileName();
 
 const oauthServerName = getArgValue("--oauth-server");
 const oauthServerUrl = getArgValue("--server-url");
@@ -104,26 +93,19 @@ if (oauthServerName || oauthServerUrl) {
     url: oauthServerUrl,
     transport: normalizeTransport(oauthTransport),
   };
-  const resolvedServer = ensureOAuthServer(
-    manifest,
-    profile,
-    profileName,
-    manifestPath,
-    selection,
-  );
-  await runOAuthFlow(resolvedServer, manifestPath, oauthCode);
+  const resolvedServer = ensureOAuthServer(store, profileName, selection);
+  await runOAuthFlow(resolvedServer, dbPath, oauthCode);
   process.exit(0);
 }
 
-const credentialStore = new CredentialStore({ manifestPath });
-const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
-const registry = new ToolRegistry(profile, credentialStore, cachePath);
+const credentialStore = new CredentialStore({ dataDir: path.dirname(dbPath) });
+const registry = new ToolRegistry(profileName, store, credentialStore);
 await registry.initialize();
 
 const uiPort = Number(process.env.MINI_MCP_UI_PORT ?? 3000);
 startHttpServer({
   port: uiPort,
-  manifestPath,
+  dbPath,
   profileName,
 });
 
@@ -146,7 +128,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (name === "get-tool") {
-    const tool = registry.getTool((args?.name as string) ?? "");
+    const toolName = (args?.name as string) ?? "";
+    const tool =
+      registry.getTool(toolName) ??
+      findToolInCache(store, profileName, toolName);
     return {
       content: [
         {
@@ -192,52 +177,36 @@ type OAuthSelection = {
 };
 
 function ensureOAuthServer(
-  manifest: ReturnType<typeof loadManifest>,
-  profile: ProfileConfig,
+  store: ConfigStore,
   profileName: string,
-  manifestPath: string,
   selection: OAuthSelection,
 ): ServerConfig {
-  const existing = findServer(profile, selection);
+  const existingByName = selection.name
+    ? store.findServerByName(profileName, selection.name)
+    : undefined;
+  const existingByUrl = selection.url
+    ? store.findServerByUrl(profileName, selection.url)
+    : undefined;
+  const existing = existingByName ?? existingByUrl;
   if (existing) {
-    if (existing.auth?.type === "oauth") {
-      return existing;
+    if (existing.auth?.type !== "oauth") {
+      existing.auth = buildOAuthAuth(existing.name, "http://127.0.0.1:8787/callback");
     }
-    if (!selection.url) {
-      throw new Error(
-        `OAuth server not found: ${selection.name ?? "unknown"}. Add a matching server entry to the manifest.`,
-      );
+    if (selection.url) {
+      existing.url = existing.url ?? selection.url;
     }
-    const redirectUrl = "http://127.0.0.1:8787/callback";
-    existing.auth = buildOAuthAuth(existing.name, redirectUrl);
-    existing.url = existing.url ?? selection.url;
     existing.transport = existing.transport ?? selection.transport ?? "http";
-    manifest.profiles[profileName] = profile;
-    saveManifest(manifestPath, manifest);
+    store.upsertServer(profileName, existing);
     return existing;
   }
   if (!selection.url) {
     const target = selection.name ?? "unknown";
     throw new Error(
-      `OAuth server not found: ${target}. Add a matching server entry to the manifest.`,
+      `OAuth server not found: ${target}. Add a matching server entry.`,
     );
   }
-  const urlMatch = findServerByUrl(profile, selection.url);
-  if (urlMatch) {
-    if (urlMatch.auth?.type !== "oauth") {
-      urlMatch.auth = buildOAuthAuth(
-        urlMatch.name,
-        "http://127.0.0.1:8787/callback",
-      );
-    }
-    urlMatch.transport = urlMatch.transport ?? selection.transport ?? "http";
-    urlMatch.url = selection.url;
-    manifest.profiles[profileName] = profile;
-    saveManifest(manifestPath, manifest);
-    return urlMatch;
-  }
   const url = normalizeUrl(selection.url);
-  const name = buildServerName(url, profile.servers.map((server) => server.name));
+  const name = selection.name ?? buildServerName(url, store.listServers(profileName).map((server) => server.name));
   const transport: Transport = selection.transport ?? "http";
   const server: ServerConfig = {
     name,
@@ -246,9 +215,7 @@ function ensureOAuthServer(
     tools: { allow: ["*"] },
     auth: buildOAuthAuth(name, "http://127.0.0.1:8787/callback"),
   };
-  profile.servers.push(server);
-  manifest.profiles[profileName] = profile;
-  saveManifest(manifestPath, manifest);
+  store.upsertServer(profileName, server);
   return server;
 }
 
@@ -302,62 +269,6 @@ function getRedirectUrl(server: ServerConfig): string {
   return resolved;
 }
 
-function findServer(
-  profile: ProfileConfig,
-  selection: OAuthSelection,
-): ServerConfig | undefined {
-  const normalizedTargetUrl = selection.url
-    ? normalizeUrl(selection.url)
-    : undefined;
-  return profile.servers.find((server) =>
-    matchesServer(server, selection, normalizedTargetUrl),
-  );
-}
-
-function findServerByUrl(
-  profile: ProfileConfig,
-  url: string,
-): ServerConfig | undefined {
-  const normalizedTargetUrl = normalizeUrl(url);
-  return profile.servers.find((server) => {
-    if (!server.url) {
-      return false;
-    }
-    const normalizedServerUrl = normalizeUrl(server.url);
-    return (
-      normalizedServerUrl === normalizedTargetUrl ||
-      normalizedServerUrl.startsWith(normalizedTargetUrl) ||
-      normalizedTargetUrl.startsWith(normalizedServerUrl)
-    );
-  });
-}
-
-function matchesServer(
-  server: ServerConfig,
-  selection: OAuthSelection,
-  normalizedTargetUrl?: string,
-): boolean {
-  if (selection.name && server.name !== selection.name) {
-    return false;
-  }
-  if (normalizedTargetUrl) {
-    if (!server.url) {
-      return false;
-    }
-    const normalizedServerUrl = normalizeUrl(server.url);
-    if (
-      normalizedServerUrl !== normalizedTargetUrl &&
-      !normalizedServerUrl.startsWith(normalizedTargetUrl) &&
-      !normalizedTargetUrl.startsWith(normalizedServerUrl)
-    ) {
-      return false;
-    }
-  }
-  if (selection.transport && server.transport !== selection.transport) {
-    return false;
-  }
-  return true;
-}
 
 function buildServerName(urlValue: string, taken: string[]): string {
   const hostname = urlValue.replace(/^https?:\/\//, "").split("/")[0];
@@ -408,13 +319,13 @@ function startLocalCallbackServer(redirectUrl: string): Promise<string> {
   });
 }
 
-async function handleAuthCommand(manifestPath: string): Promise<void> {
+async function handleAuthCommand(dbPath: string): Promise<void> {
   const action = process.argv[3];
   const ref = process.argv[4];
   if (!action || !ref) {
     throw new Error("Usage: mini-mcp auth <set|get|remove|oauth-reset> <ref>");
   }
-  const store = new CredentialStore({ manifestPath });
+  const store = new CredentialStore({ dataDir: path.dirname(dbPath) });
   if (action === "set") {
     const value = process.argv[5] ?? readStdin().trim();
     if (!value) {
@@ -452,7 +363,7 @@ function readStdin(): string {
   return fs.readFileSync(0, "utf8");
 }
 
-async function handleConnectCommand(manifestPath: string): Promise<void> {
+async function handleConnectCommand(dbPath: string): Promise<void> {
   const args = parseArgs(process.argv.slice(3));
   const name = args["--name"];
   const url = args["--server-url"];
@@ -464,7 +375,7 @@ async function handleConnectCommand(manifestPath: string): Promise<void> {
     throw new Error("connect requires --name");
   }
 
-  const result = await connectAndDiscover(manifestPath, {
+  const result = await connectAndDiscover(dbPath, {
     name,
     transport: transportArg,
     url,
@@ -505,13 +416,12 @@ type ConnectInput = {
 };
 
 async function connectAndDiscover(
-  manifestPath: string,
+  dbPath: string,
   input: ConnectInput,
 ): Promise<{ server: ServerConfig; allow: string[] }> {
-  const manifest = loadManifest(manifestPath);
-  const profileName = input.profile ?? manifest.activeProfile;
-  const profile = selectProfile(manifest, profileName);
-  const existing = profile.servers.find((entry) => entry.name === input.name);
+  const localStore = new ConfigStore(dbPath);
+  const profileName = input.profile ?? localStore.getActiveProfileName();
+  const existing = localStore.findServerByName(profileName, input.name);
   const transport = input.transport ?? existing?.transport;
   if (!transport) {
     throw new Error("connect requires --transport or an existing server entry");
@@ -533,8 +443,8 @@ async function connectAndDiscover(
     throw new Error("http/sse connect requires --server-url");
   }
 
-  const credentialStore = new CredentialStore({ manifestPath });
-  const registry = new ToolRegistry(profile, credentialStore);
+  const credentialStore = new CredentialStore({ dataDir: path.dirname(dbPath) });
+  const registry = new ToolRegistry(profileName, localStore, credentialStore);
   let tools: Array<{ name: string; description?: string; inputSchema?: unknown }>;
   let activeServer = server;
   try {
@@ -542,7 +452,7 @@ async function connectAndDiscover(
   } catch (error) {
     if (isUnauthorizedError(error)) {
       if (activeServer.auth?.type === "oauth") {
-        await runOAuthFlow(activeServer, manifestPath);
+        await runOAuthFlow(activeServer, dbPath);
       } else if (
         activeServer.url &&
         (activeServer.transport === "http" || activeServer.transport === "sse")
@@ -552,14 +462,8 @@ async function connectAndDiscover(
           url: activeServer.url,
           transport: activeServer.transport,
         };
-        activeServer = ensureOAuthServer(
-          manifest,
-          profile,
-          profileName,
-          manifestPath,
-          selection,
-        );
-        await runOAuthFlow(activeServer, manifestPath);
+        activeServer = ensureOAuthServer(localStore, profileName, selection);
+        await runOAuthFlow(activeServer, dbPath);
       } else {
         throw error;
       }
@@ -570,39 +474,21 @@ async function connectAndDiscover(
   }
 
   const allow = tools.map((tool) => tool.name);
-  updateToolsCache(manifestPath, activeServer.name, tools);
-  const existingIndex = profile.servers.findIndex((entry) => {
-    if (entry.name === input.name) {
-      return true;
-    }
-    if (server.url && entry.url) {
-      const normalizedServerUrl = normalizeUrl(server.url);
-      const normalizedEntryUrl = normalizeUrl(entry.url);
-      return (
-        normalizedServerUrl === normalizedEntryUrl ||
-        normalizedServerUrl.startsWith(normalizedEntryUrl) ||
-        normalizedEntryUrl.startsWith(normalizedServerUrl)
-      );
-    }
-    return false;
-  });
   const entry: ServerConfig = {
     ...activeServer,
     tools: { allow },
   };
-  if (existingIndex >= 0) {
-    profile.servers[existingIndex] = entry;
-  } else {
-    profile.servers.push(entry);
-  }
-  manifest.profiles[profileName] = profile;
-  saveManifest(manifestPath, manifest);
+  localStore.upsertServer(profileName, entry);
+  localStore.upsertToolsCache(profileName, entry.name, {
+    status: "ok",
+    tools,
+  });
   return { server: entry, allow };
 }
 
 type HttpServerOptions = {
   port: number;
-  manifestPath: string;
+  dbPath: string;
   profileName: string;
 };
 
@@ -616,7 +502,7 @@ function startHttpServer(options: HttpServerOptions): void {
     const url = new URL(req.url, `http://${req.headers.host ?? "localhost"}`);
     if (url.pathname.startsWith("/api/")) {
       try {
-        await handleApiRequest(req, res, url, options.manifestPath, options.profileName);
+        await handleApiRequest(req, res, url, options.dbPath, options.profileName);
       } catch (error) {
         sendJson(res, 500, { error: (error as Error).message });
       }
@@ -634,15 +520,14 @@ async function handleApiRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: URL,
-  manifestPath: string,
+  dbPath: string,
   defaultProfile: string,
 ): Promise<void> {
   const profileName = url.searchParams.get("profile") ?? defaultProfile;
-  const manifest = loadManifest(manifestPath);
-  const profile = selectProfile(manifest, profileName);
+  const localStore = new ConfigStore(dbPath);
 
   if (req.method === "GET" && url.pathname === "/api/servers") {
-    sendJson(res, 200, { servers: profile.servers });
+    sendJson(res, 200, { servers: localStore.listServers(profileName) });
     return;
   }
 
@@ -652,33 +537,22 @@ async function handleApiRequest(
       sendJson(res, 400, { error: "Server requires name and transport" });
       return;
     }
-    const idx = profile.servers.findIndex(
-      (entry) => entry.name === body.name || (entry.url && body.url && normalizeUrl(entry.url) === normalizeUrl(body.url)),
-    );
-    if (idx >= 0) {
-      profile.servers[idx] = body;
-    } else {
-      profile.servers.push(body);
-    }
-    manifest.profiles[profileName] = profile;
-    saveManifest(manifestPath, manifest);
+    localStore.upsertServer(profileName, body);
     sendJson(res, 200, { server: body });
     return;
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/servers/")) {
     const name = decodeURIComponent(url.pathname.replace("/api/servers/", ""));
-    profile.servers = profile.servers.filter((server) => server.name !== name);
-    manifest.profiles[profileName] = profile;
-    saveManifest(manifestPath, manifest);
-    removeToolsCacheEntry(manifestPath, name);
+    localStore.deleteServer(profileName, name);
+    localStore.removeToolsCacheEntry(profileName, name);
     sendJson(res, 200, { ok: true });
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/connect") {
     const body = (await readJsonBody(req)) as ConnectInput;
-    const result = await connectAndDiscover(manifestPath, {
+    const result = await connectAndDiscover(dbPath, {
       ...body,
       profile: profileName,
     });
@@ -686,86 +560,34 @@ async function handleApiRequest(
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/api/tools") {
-    const cache = readToolsCache(manifestPath);
-    if (!cache) {
-      sendJson(res, 404, { error: "tools-cache.json not found" });
+  if (req.method === "GET" && url.pathname.startsWith("/api/tools/")) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts.length >= 3) {
+      const serverName = decodeURIComponent(parts[2] ?? "");
+      const toolName = decodeURIComponent(parts[3] ?? "");
+      const cache = localStore.getToolsCache(profileName);
+      const tool =
+        cache.servers[serverName]?.tools?.find(
+          (entry) => entry.name === toolName,
+        ) ?? null;
+      if (!tool) {
+        sendJson(res, 404, { error: "Tool not found" });
+        return;
+      }
+      sendJson(res, 200, { tool });
       return;
     }
+    sendJson(res, 400, { error: "Missing tool path" });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/tools") {
+    const cache = localStore.getToolsCache(profileName);
     sendJson(res, 200, cache);
     return;
   }
 
   sendJson(res, 404, { error: "Not found" });
-}
-
-function readToolsCache(manifestPath: string): unknown | null {
-  const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
-  if (!fs.existsSync(cachePath)) {
-    return null;
-  }
-  const raw = fs.readFileSync(cachePath, "utf-8");
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-type ToolsCache = {
-  updatedAt: number;
-  servers: Record<
-    string,
-    {
-      status: "ok" | "down";
-      error?: string;
-      tools?: Array<{ name: string; description?: string; inputSchema?: unknown }>;
-    }
-  >;
-};
-
-function updateToolsCache(
-  manifestPath: string,
-  serverName: string,
-  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
-): void {
-  const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
-  const existing = readToolsCache(manifestPath) as ToolsCache | null;
-  const cache: ToolsCache = existing ?? { updatedAt: Date.now(), servers: {} };
-  cache.servers[serverName] = { status: "ok", tools };
-  cache.updatedAt = Date.now();
-  fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
-}
-
-function removeToolsCacheEntry(manifestPath: string, serverName: string): void {
-  const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
-  const existing = readToolsCache(manifestPath) as ToolsCache | null;
-  if (!existing?.servers?.[serverName]) {
-    return;
-  }
-  delete existing.servers[serverName];
-  existing.updatedAt = Date.now();
-  fs.writeFileSync(cachePath, JSON.stringify(existing, null, 2));
-}
-
-function pruneToolsCache(manifestPath: string, profile: ProfileConfig): void {
-  const cachePath = path.join(path.dirname(manifestPath), "tools-cache.json");
-  const existing = readToolsCache(manifestPath) as ToolsCache | null;
-  if (!existing?.servers) {
-    return;
-  }
-  const allowed = new Set(profile.servers.map((server) => server.name));
-  let changed = false;
-  for (const name of Object.keys(existing.servers)) {
-    if (!allowed.has(name)) {
-      delete existing.servers[name];
-      changed = true;
-    }
-  }
-  if (changed) {
-    existing.updatedAt = Date.now();
-    fs.writeFileSync(cachePath, JSON.stringify(existing, null, 2));
-  }
 }
 
 async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
@@ -843,12 +665,12 @@ function mimeType(ext: string): string {
 
 async function runOAuthFlow(
   server: ServerConfig,
-  manifestPath: string,
+  dbPath: string,
   oauthCode?: string,
 ): Promise<void> {
   assertOAuthServerConfig(server);
   console.log(`Starting OAuth flow for ${server.name} (${server.url})`);
-  const credentialStore = new CredentialStore({ manifestPath });
+  const credentialStore = new CredentialStore({ dataDir: path.dirname(dbPath) });
   const provider = new StoredOAuthProvider(credentialStore, server.auth);
   if (oauthCode) {
     const result = await auth(provider, {
@@ -885,4 +707,30 @@ function isUnauthorizedError(error: unknown): boolean {
     return true;
   }
   return false;
+}
+
+function findToolInCache(
+  store: ConfigStore,
+  profileName: string,
+  name: string,
+): unknown | null {
+  const cache = store.getToolsCache(profileName);
+  if (name.includes("/")) {
+    const [serverName, toolName] = name.split("/", 2);
+    const entry = cache.servers[serverName];
+    const match = entry?.tools?.find((tool) => tool.name === toolName);
+    return match ?? null;
+  }
+  let found: unknown | null = null;
+  for (const entry of Object.values(cache.servers)) {
+    const match = entry.tools?.find((tool) => tool.name === name);
+    if (!match) {
+      continue;
+    }
+    if (found) {
+      return null;
+    }
+    found = match;
+  }
+  return found;
 }

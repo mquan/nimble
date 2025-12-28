@@ -18,7 +18,7 @@ type StoredCredential = {
 };
 
 export type CredentialStoreOptions = {
-  manifestPath: string;
+  dataDir: string;
 };
 
 export class CredentialStore {
@@ -26,9 +26,8 @@ export class CredentialStore {
   private key: Buffer;
 
   constructor(options: CredentialStoreOptions) {
-    const manifestDir = path.dirname(options.manifestPath);
-    const dbPath = path.join(manifestDir, "credentials.sqlite");
-    fs.mkdirSync(manifestDir, { recursive: true });
+    const dbPath = path.join(options.dataDir, "credentials.sqlite");
+    fs.mkdirSync(options.dataDir, { recursive: true });
     this.db = new Database(dbPath);
     this.ensureSchema();
     this.key = this.deriveKey();

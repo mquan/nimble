@@ -7,83 +7,19 @@ MCP tool router that scales to thousands of tools without the token tax.
 npm install
 ```
 
-## Configure
-Create a manifest at the default path or pass `--manifest` when starting the server.
+## Storage
+mini-mcp stores configuration and tool cache in a local SQLite database.
 
-Default paths:
-- macOS: `~/Library/Application Support/mini-mcp/manifest.json`
-- Linux: `~/.config/mini-mcp/manifest.json`
-
-Minimal manifest example:
+Default DB path:
 ```
-{
-  "activeProfile": "default",
-  "profiles": {
-    "default": {
-      "servers": []
-    }
-  }
-}
+./mini-mcp.sqlite
 ```
 
-HTTP/SSE downstream example:
+Override with:
 ```
-{
-  "activeProfile": "default",
-  "profiles": {
-    "default": {
-      "servers": [
-        {
-          "name": "remote-http",
-          "transport": "http",
-          "url": "http://127.0.0.1:3001/mcp",
-          "tools": { "allow": ["*"] },
-          "auth": {
-            "type": "bearer",
-            "credentialRef": "remote-token"
-          }
-        },
-        {
-          "name": "remote-sse",
-          "transport": "sse",
-          "url": "http://127.0.0.1:3002/mcp",
-          "tools": { "allow": ["*"] }
-        }
-      ]
-    }
-  }
-}
+MINI_MCP_DB_PATH=/path/to/mini-mcp.sqlite
 ```
 
-OAuth downstream example:
-```
-{
-  "activeProfile": "default",
-  "profiles": {
-    "default": {
-      "servers": [
-        {
-          "name": "notion",
-          "transport": "http",
-          "url": "https://mcp.notion.com/mcp",
-          "tools": { "allow": ["*"] },
-          "auth": {
-            "type": "oauth",
-            "credentialRef": "notion-oauth",
-            "clientMetadata": {
-              "client_name": "mini-mcp",
-              "redirect_uris": ["http://localhost:8787/callback"],
-              "grant_types": ["authorization_code", "refresh_token"],
-              "response_types": ["code"],
-              "token_endpoint_auth_method": "none"
-            }
-          }
-        }
-      ]
-    }
-  }
-}
-```
 
 OAuth flow (manual):
 ```
@@ -98,7 +34,7 @@ OAuth flow by URL/transport (manual):
 ```
 MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js --server-url https://mcp.notion.com/mcp --transport streamableHttp
 ```
-If the server does not exist in the manifest, this will auto-add a default OAuth entry and use a local callback at `http://127.0.0.1:8787/callback`.
+If the server does not exist yet, this will auto-add a default OAuth entry and use a local callback at `http://127.0.0.1:8787/callback`.
 
 ## Credential CLI
 ```
@@ -118,6 +54,7 @@ MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js connect --name lo
 MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js connect --name remote --transport streamableHttp --server-url https://mcp.example.com/mcp
 ```
 `discover` is an alias for `connect`.
+Add `--db /path/to/mini-mcp.sqlite` to target a different database.
 
 ## Run (dev)
 ```
@@ -141,6 +78,7 @@ npm run ui:preview
 
 ## Config UI
 The server also hosts a local config UI on `http://127.0.0.1:3000`.
+The UI reads and writes the SQLite DB.
 
 Build UI once:
 ```
@@ -172,16 +110,5 @@ mini-mcp runs over stdio. Configure your MCP client to launch it:
 ```
 npm install
 npm run build
-mkdir -p "$HOME/Library/Application Support/mini-mcp"
-cat > "$HOME/Library/Application Support/mini-mcp/manifest.json" <<'EOF'
-{
-  "activeProfile": "default",
-  "profiles": {
-    "default": {
-      "servers": []
-    }
-  }
-}
-EOF
 MINI_MCP_ENCRYPTION_KEY=your-encryption-key npx tsx scripts/stdio-test.ts
 ```

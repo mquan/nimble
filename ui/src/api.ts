@@ -60,3 +60,10 @@ export async function loadToolsCache(): Promise<ToolsCache | null> {
     return null;
   }
 }
+
+export async function loadToolDetail(
+  serverName: string,
+  toolName: string,
+): Promise<{ tool: { name: string; description?: string; inputSchema?: unknown } }>{
+  return request(`/api/tools/${encodeURIComponent(serverName)}/${encodeURIComponent(toolName)}`);
+}

@@ -321,6 +321,21 @@ button:hover:not(:disabled) {
   box-shadow: 0 10px 20px rgba(30, 27, 22, 0.18);
 }
 
+.link {
+  background: transparent;
+  color: var(--ink);
+  padding: 0;
+  border: none;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.link:hover {
+  color: var(--accent-dark);
+  box-shadow: none;
+  transform: none;
+}
+
 .status {
   margin-top: 12px;
   padding: 10px 12px;
@@ -401,6 +416,59 @@ button:hover:not(:disabled) {
   padding: 16px;
   text-align: center;
   color: var(--muted);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 27, 22, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 10;
+}
+
+.modal {
+  background: var(--card);
+  border-radius: 18px;
+  border: 1px solid var(--outline);
+  max-width: 780px;
+  width: min(90vw, 780px);
+  max-height: 80vh;
+  overflow: auto;
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.modal-body {
+  margin-top: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.modal-section h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.modal-section pre {
+  margin: 0;
+  background: #fffdf9;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.82rem;
+  color: var(--ink);
 }
 
 @keyframes floatIn {

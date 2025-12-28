@@ -10,11 +10,11 @@ const ENV_KEY = "MINI_MCP_ENCRYPTION_KEY";
 
 test("CredentialStore set/get roundtrip", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-mcp-"));
-  const manifestPath = path.join(dir, "manifest.json");
+  const dataDir = path.join(dir, "data");
   const previous = process.env[ENV_KEY];
   process.env[ENV_KEY] = "test-key";
 
-  const store = new CredentialStore({ manifestPath });
+  const store = new CredentialStore({ dataDir });
   store.set("example", "secret");
   assert.equal(store.get("example"), "secret");
   store.close();
@@ -28,11 +28,11 @@ test("CredentialStore set/get roundtrip", () => {
 
 test("CredentialStore getJson handles invalid JSON", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-mcp-"));
-  const manifestPath = path.join(dir, "manifest.json");
+  const dataDir = path.join(dir, "data");
   const previous = process.env[ENV_KEY];
   process.env[ENV_KEY] = "test-key";
 
-  const store = new CredentialStore({ manifestPath });
+  const store = new CredentialStore({ dataDir });
   store.set("bad-json", "{not-json");
   assert.equal(store.getJson("bad-json"), null);
   store.close();

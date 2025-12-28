@@ -3,6 +3,7 @@ import type { ServerConfig, ToolsCache } from "./types";
 import {
   connectServer,
   listServers,
+  loadToolDetail,
   loadToolsCache,
   removeServer,
   saveServer,
@@ -72,6 +73,12 @@ export default function App() {
   const [isBusy, setIsBusy] = useState(false);
   const [stdioJson, setStdioJson] = useState<string>("");
   const [stdioError, setStdioError] = useState<string>("");
+  const [toolDetail, setToolDetail] = useState<{
+    serverName: string;
+    tool: { name: string; description?: string; inputSchema?: unknown };
+  } | null>(null);
+  const [toolLoading, setToolLoading] = useState(false);
+  const [toolError, setToolError] = useState("");
 
   const totalTools = useMemo(() => {
     if (!cache?.servers) {
@@ -187,6 +194,19 @@ export default function App() {
       ...prev,
       [key]: value,
     }));
+  }
+
+  async function openToolDetail(serverName: string, toolName: string) {
+    setToolLoading(true);
+    setToolError("");
+    try {
+      const data = await loadToolDetail(serverName, toolName);
+      setToolDetail({ serverName, tool: data.tool });
+    } catch (error) {
+      setToolError((error as Error).message);
+    } finally {
+      setToolLoading(false);
+    }
   }
 
   return (
@@ -389,7 +409,7 @@ export default function App() {
         <section className="card tools">
           <div className="card-header">
             <h2>Tools</h2>
-            <span className="subtle">From tools-cache.json</span>
+            <span className="subtle">From local cache</span>
           </div>
           <div className="tools-grid">
             {cache?.servers &&
@@ -407,7 +427,14 @@ export default function App() {
                   </div>
                   <ul>
                     {uniqueTools(info.tools ?? []).slice(0, 12).map((tool) => (
-                      <li key={tool.name}>{tool.name}</li>
+                      <li key={tool.name}>
+                        <button
+                          className="link"
+                          onClick={() => openToolDetail(name, tool.name)}
+                        >
+                          {tool.name}
+                        </button>
+                      </li>
                     ))}
                     {uniqueTools(info.tools ?? []).length > 12 && (
                       <li className="muted">
@@ -427,6 +454,43 @@ export default function App() {
         </section>
 
       </main>
+
+      {toolDetail && (
+        <div className="modal-backdrop" onClick={() => setToolDetail(null)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="panel-label">Tool</p>
+                <h3>{toolDetail.tool.name}</h3>
+                <p className="server-meta">Server: {toolDetail.serverName}</p>
+              </div>
+              <button className="ghost" onClick={() => setToolDetail(null)}>
+                Close
+              </button>
+            </div>
+            {toolLoading && <p className="muted">Loading...</p>}
+            {toolError && <p className="error">{toolError}</p>}
+            {!toolLoading && !toolError && (
+              <div className="modal-body">
+                {toolDetail.tool.description && (
+                  <div className="modal-section">
+                    <h4>Description</h4>
+                    <pre>{toolDetail.tool.description}</pre>
+                  </div>
+                )}
+                {toolDetail.tool.inputSchema && (
+                  <div className="modal-section">
+                    <h4>Schema</h4>
+                    <pre>
+                      {JSON.stringify(toolDetail.tool.inputSchema, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

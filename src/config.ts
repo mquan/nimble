@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 export type Transport = "stdio" | "http" | "sse";
@@ -59,64 +57,10 @@ export type Manifest = {
   profiles: Record<string, ProfileConfig>;
 };
 
-export type LoadOptions = {
-  manifestPath?: string;
-  profile?: string;
-};
-
-function getDefaultConfigDir(): string {
-  const home = os.homedir();
-  if (process.platform === "darwin") {
-    return path.join(home, "Library", "Application Support", "mini-mcp");
-  }
-  return path.join(home, ".config", "mini-mcp");
-}
-
-export function getDefaultManifestPath(): string {
-  return path.join(getDefaultConfigDir(), "manifest.json");
-}
-
-export function resolveManifestPath(
-  manifestPath?: string,
-  envValue = process.env.MINI_MCP_MANIFEST,
+export function resolveDbPath(
+  dbPath?: string,
+  envValue = process.env.MINI_MCP_DB_PATH,
 ): string {
-  return manifestPath ?? envValue ?? getDefaultManifestPath();
-}
-
-export function loadManifest(manifestPath: string): Manifest {
-  if (!fs.existsSync(manifestPath)) {
-    const dir = path.dirname(manifestPath);
-    fs.mkdirSync(dir, { recursive: true });
-    const defaultManifest: Manifest = {
-      activeProfile: "default",
-      profiles: {
-        default: {
-          servers: [],
-        },
-      },
-    };
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify(defaultManifest, null, 2),
-    );
-    return defaultManifest;
-  }
-  const raw = fs.readFileSync(manifestPath, "utf-8");
-  return JSON.parse(raw) as Manifest;
-}
-
-export function saveManifest(manifestPath: string, manifest: Manifest): void {
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-}
-
-export function selectProfile(
-  manifest: Manifest,
-  profile?: string,
-): ProfileConfig {
-  const active = profile ?? manifest.activeProfile;
-  const config = manifest.profiles[active];
-  if (!config) {
-    throw new Error(`Profile not found: ${active}`);
-  }
-  return config;
+  const resolved = dbPath ?? envValue ?? path.join(process.cwd(), "mini-mcp.sqlite");
+  return path.resolve(resolved);
 }

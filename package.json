@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
-    "test": "npm run build && node --test dist/tests/*.js",
+    "test": "rm -rf dist && npm run build && node --test dist/tests/*.js",
     "ui:dev": "vite --config ui/vite.config.ts",
     "ui:build": "vite build --config ui/vite.config.ts",
     "ui:preview": "vite preview --config ui/vite.config.ts"
