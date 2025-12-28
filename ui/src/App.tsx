@@ -69,15 +69,98 @@ function fenceXmlExamples(text: string) {
     .join("```");
 }
 
+type TokenCounts = { used: number; original: number };
+
+function estimateTokens(text: string) {
+  if (!text) {
+    return 0;
+  }
+  return Math.ceil(text.length / 4);
+}
+
+function getToolSummary(description?: string) {
+  if (!description) {
+    return "";
+  }
+  const trimmed = description.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const match = trimmed.match(/^.*?[.!?](\s|$)/);
+  if (match) {
+    return match[0].trim();
+  }
+  const firstLine = trimmed.split(/\r?\n/).find((line) => line.trim());
+  if (!firstLine) {
+    return "";
+  }
+  return firstLine.replace(/^#+\s*/, "").trim();
+}
+
+function resolveToolSummary(description?: string, summary?: string) {
+  if (summary && summary.trim()) {
+    return summary.trim();
+  }
+  return getToolSummary(description);
+}
+
+function getToolTokenCounts(tool: {
+  name: string;
+  description?: string;
+  summary?: string;
+  inputSchema?: unknown;
+}): TokenCounts {
+  const description = tool.description ?? "";
+  const summary = resolveToolSummary(description, tool.summary);
+  const schemaText = tool.inputSchema
+    ? JSON.stringify(tool.inputSchema, null, 2)
+    : "";
+  const usedText = [tool.name, summary].filter(Boolean).join("\n");
+  const originalText = [tool.name, description, schemaText]
+    .filter(Boolean)
+    .join("\n");
+  return {
+    used: estimateTokens(usedText),
+    original: estimateTokens(originalText),
+  };
+}
+
+function formatTokenMetric(counts: TokenCounts) {
+  if (!counts.original) {
+    return "0/0 (0%)";
+  }
+  const formatCompact = (value: number) => {
+    if (value >= 1_000_000_000) {
+      return `${(value / 1_000_000_000).toFixed(1)}B`;
+    }
+    if (value >= 1_000_000) {
+      return `${(value / 1_000_000).toFixed(1)}M`;
+    }
+    if (value >= 1_000) {
+      return `${(value / 1_000).toFixed(1)}K`;
+    }
+    return `${value}`;
+  };
+  const percentRaw = ((counts.original - counts.used) / counts.original) * 100;
+  const percent =
+    percentRaw >= 100 && counts.used > 0 ? 99.9 : Math.max(percentRaw, 0);
+  return `${formatCompact(counts.used)}/${formatCompact(counts.original)} (+${percent.toFixed(1)}%)`;
+}
+
 function highlightSchemaJson(value: unknown) {
   const json = JSON.stringify(value, null, 2);
   return Prism.highlight(json, Prism.languages.json, "json");
 }
 
 function uniqueTools(
-  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
+  tools: Array<{ name: string; description?: string; summary?: string; inputSchema?: unknown }>,
 ) {
-  const seen = new Map<string, { name: string; description?: string; inputSchema?: unknown }>();
+  const seen = new Map<string, {
+    name: string;
+    description?: string;
+    summary?: string;
+    inputSchema?: unknown;
+  }>();
   for (const tool of tools) {
     if (!seen.has(tool.name)) {
       seen.set(tool.name, tool);
@@ -98,7 +181,7 @@ export default function App() {
   const [stdioError, setStdioError] = useState<string>("");
   const [toolDetail, setToolDetail] = useState<{
     serverName: string;
-    tool: { name: string; description?: string; inputSchema?: unknown };
+    tool: { name: string; description?: string; summary?: string; inputSchema?: unknown };
   } | null>(null);
   const [toolLoading, setToolLoading] = useState(false);
   const [toolError, setToolError] = useState("");
@@ -110,6 +193,31 @@ export default function App() {
     return Object.values(cache.servers).reduce((sum, entry) => {
       return sum + uniqueTools(entry.tools ?? []).length;
     }, 0);
+  }, [cache]);
+
+  const tokenTotals = useMemo(() => {
+    const perServer: Record<string, TokenCounts> = {};
+    let used = 0;
+    let original = 0;
+    if (!cache?.servers) {
+      return { perServer, overall: { used: 0, original: 0 } };
+    }
+    for (const [name, info] of Object.entries(cache.servers)) {
+      const tools = uniqueTools(info.tools ?? []);
+      const counts = tools.reduce(
+        (acc, tool) => {
+          const toolCounts = getToolTokenCounts(tool);
+          acc.used += toolCounts.used;
+          acc.original += toolCounts.original;
+          return acc;
+        },
+        { used: 0, original: 0 },
+      );
+      perServer[name] = counts;
+      used += counts.used;
+      original += counts.original;
+    }
+    return { perServer, overall: { used, original } };
   }, [cache]);
 
   const selectedIsNew = useMemo(() => {
@@ -255,7 +363,11 @@ export default function App() {
           </div>
           <div>
             <p className="panel-label">Token savings</p>
-            <p className="panel-value highlight">Coming soon</p>
+            <p className="panel-value">
+              <span className="token-metric positive">
+                {formatTokenMetric(tokenTotals.overall)}
+              </span>
+            </p>
           </div>
           <div>
             <p className="panel-label">Last tool sync</p>
@@ -436,31 +548,40 @@ export default function App() {
           </div>
           <div className="tools-grid">
             {cache?.servers &&
-              Object.entries(cache.servers).map(([name, info]) => (
-                <div key={name} className="tool-group">
-                  <div className="tool-group-header">
-                    <div>
-                      <p className="server-name">{name}</p>
-                      <p className="server-meta">
-                        {info.error ?? ""}
-                      </p>
+              Object.entries(cache.servers).map(([name, info]) => {
+                const tools = uniqueTools(info.tools ?? []);
+                const toolCount = tools.length;
+                const tokenMetric = tokenTotals.perServer[name] ?? { used: 0, original: 0 };
+                return (
+                  <div key={name} className="tool-group">
+                    <div className="tool-group-header">
+                      <div>
+                        <p className="server-name">
+                          {name} <span className="tool-count">({toolCount})</span>
+                        </p>
+                        <p className="server-meta">
+                          {info.error ?? ""}
+                        </p>
+                      </div>
+                      <span className="token-metric positive">
+                        {formatTokenMetric(tokenMetric)}
+                      </span>
                     </div>
-                    <span className="count">{info.tools?.length ?? 0}</span>
+                    <ul>
+                      {tools.map((tool) => (
+                        <li key={tool.name}>
+                          <button
+                            className="link"
+                            onClick={() => openToolDetail(name, tool.name)}
+                          >
+                            {tool.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul>
-                    {uniqueTools(info.tools ?? []).map((tool) => (
-                      <li key={tool.name}>
-                        <button
-                          className="link"
-                          onClick={() => openToolDetail(name, tool.name)}
-                        >
-                          {tool.name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+                );
+              })}
             {!cache && (
               <div className="empty">
                 <p>No tool cache found yet.</p>
@@ -478,7 +599,12 @@ export default function App() {
             <div className="modal-header">
               <div>
                 <p className="panel-label">Tool</p>
-                <h3>{toolDetail.tool.name}</h3>
+                <h3>
+                  {toolDetail.tool.name}{" "}
+                  <span className="token-metric positive">
+                    {formatTokenMetric(getToolTokenCounts(toolDetail.tool))}
+                  </span>
+                </h3>
                 <p className="server-meta">Server: {toolDetail.serverName}</p>
               </div>
               <button className="ghost" onClick={() => setToolDetail(null)}>
@@ -489,6 +615,17 @@ export default function App() {
             {toolError && <p className="error">{toolError}</p>}
             {!toolLoading && !toolError && (
               <div className="modal-body">
+                {(toolDetail.tool.description || toolDetail.tool.summary) && (
+                  <div className="modal-section">
+                    <h4>Summary</h4>
+                    <p>
+                      {resolveToolSummary(
+                        toolDetail.tool.description,
+                        toolDetail.tool.summary,
+                      )}
+                    </p>
+                  </div>
+                )}
                 {toolDetail.tool.description && (
                   <div className="modal-section">
                     <h4>Description</h4>
