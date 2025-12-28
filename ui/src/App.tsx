@@ -1,4 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import Prism from "prismjs";
+import "prismjs/components/prism-json";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { ServerConfig, ToolsCache } from "./types";
 import {
   connectServer,
@@ -49,6 +53,25 @@ function formatStatus(status?: string) {
 function statusClass(status?: string) {
   const label = formatStatus(status);
   return label;
+}
+
+function fenceXmlExamples(text: string) {
+  const segments = text.split("```");
+  return segments
+    .map((segment, index) => {
+      if (index % 2 === 1) {
+        return segment;
+      }
+      return segment.replace(/<example\b[\s\S]*?<\/example>/g, (match) => {
+        return `\n\`\`\`xml\n${match}\n\`\`\`\n`;
+      });
+    })
+    .join("```");
+}
+
+function highlightSchemaJson(value: unknown) {
+  const json = JSON.stringify(value, null, 2);
+  return Prism.highlight(json, Prism.languages.json, "json");
 }
 
 function uniqueTools(
@@ -469,15 +492,40 @@ export default function App() {
                 {toolDetail.tool.description && (
                   <div className="modal-section">
                     <h4>Description</h4>
-                    <pre>{toolDetail.tool.description}</pre>
+                    <div className="markdown">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        skipHtml
+                        components={{
+                          pre({ children }) {
+                            return <>{children}</>;
+                          },
+                          code({ inline, children }) {
+                            if (inline) {
+                              return <code>{children}</code>;
+                            }
+                            return (
+                              <pre className="code-block">
+                                <code>{children}</code>
+                              </pre>
+                            );
+                          },
+                        }}
+                      >
+                        {fenceXmlExamples(toolDetail.tool.description)}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 )}
                 {toolDetail.tool.inputSchema && (
                   <div className="modal-section">
                     <h4>Schema</h4>
-                    <pre>
-                      {JSON.stringify(toolDetail.tool.inputSchema, null, 2)}
-                    </pre>
+                    <pre
+                      className="code-block json"
+                      dangerouslySetInnerHTML={{
+                        __html: highlightSchemaJson(toolDetail.tool.inputSchema),
+                      }}
+                    />
                   </div>
                 )}
               </div>

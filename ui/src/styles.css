@@ -478,6 +478,93 @@ button:hover:not(:disabled) {
   color: var(--ink);
 }
 
+.markdown {
+  font-size: 0.9rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.markdown p {
+  margin: 0 0 10px;
+}
+
+.markdown ul {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+
+.markdown h2,
+.markdown h3 {
+  margin: 14px 0 8px;
+  color: var(--ink);
+}
+
+.markdown h2 {
+  font-size: 1.05rem;
+}
+
+.markdown h3 {
+  font-size: 0.95rem;
+}
+
+.markdown li {
+  margin-bottom: 6px;
+}
+
+.markdown code {
+  background: #1e1c19;
+  color: #f6f1e8;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.85em;
+}
+
+.modal-section pre.code-block,
+.code-block {
+  background: #1b1a18;
+  border: 1px solid #302c27;
+  border-radius: 12px;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.82rem;
+  color: #f5f2e9;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.code-block code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  display: block;
+}
+
+.markdown .code-block {
+  margin: 0 0 12px;
+}
+
+.code-block .token.string {
+  color: #9cd67a;
+}
+
+.code-block .token.key {
+  color: #7db7ff;
+}
+
+.code-block .token.number {
+  color: #f2b45f;
+}
+
+.code-block .token.boolean {
+  color: #ff8a7a;
+}
+
+.code-block .token.null {
+  color: #b9b1a8;
+}
+
 @keyframes floatIn {
   from {
     opacity: 0;
