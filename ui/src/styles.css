@@ -394,9 +394,16 @@ button:hover:not(:disabled) {
   margin: 10px 0 0;
   padding: 0;
   display: grid;
-  gap: 6px;
+  gap: 10px;
   font-size: 0.88rem;
   color: var(--muted);
+}
+
+.tool-group .link {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 10px;
 }
 
 .count {

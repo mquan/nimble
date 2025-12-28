@@ -419,14 +419,13 @@ export default function App() {
                     <div>
                       <p className="server-name">{name}</p>
                       <p className="server-meta">
-                        {info.status}
-                        {info.error ? ` • ${info.error}` : ""}
+                        {info.error ?? ""}
                       </p>
                     </div>
                     <span className="count">{info.tools?.length ?? 0}</span>
                   </div>
                   <ul>
-                    {uniqueTools(info.tools ?? []).slice(0, 12).map((tool) => (
+                    {uniqueTools(info.tools ?? []).map((tool) => (
                       <li key={tool.name}>
                         <button
                           className="link"
@@ -436,11 +435,6 @@ export default function App() {
                         </button>
                       </li>
                     ))}
-                    {uniqueTools(info.tools ?? []).length > 12 && (
-                      <li className="muted">
-                        +{uniqueTools(info.tools ?? []).length - 12} more
-                      </li>
-                    )}
                   </ul>
                 </div>
               ))}
