@@ -23,7 +23,12 @@ export type ToolsCache = {
     {
       status: "ok" | "down";
       error?: string;
-      tools?: Array<{ name: string; description?: string; inputSchema?: unknown }>;
+      tools?: Array<{
+        name: string;
+        description?: string;
+        summary?: string;
+        inputSchema?: unknown;
+      }>;
     }
   >;
 };

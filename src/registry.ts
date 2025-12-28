@@ -23,6 +23,13 @@ type ToolEntry = {
   downstreamName: string;
 };
 
+type ToolDefinition = {
+  name: string;
+  description?: string;
+  summary?: string;
+  inputSchema?: unknown;
+};
+
 export class ToolRegistry {
   private profileName: string;
   private store: ConfigStore;
@@ -50,11 +57,11 @@ export class ToolRegistry {
 
   async discoverServerTools(
     server: ServerConfig,
-  ): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>> {
+  ): Promise<ToolDefinition[]> {
     const client = await this.connectClient(server);
     const tools = await client.listTools();
     await client.close();
-    return tools.tools ?? [];
+    return this.enrichTools(tools.tools ?? []);
   }
 
   listSummaries(): { name: string; summary: string }[] {
@@ -96,12 +103,13 @@ export class ToolRegistry {
     try {
       const client = await this.connectClient(server);
       const tools = await client.listTools();
+      const enrichedTools = this.enrichTools(tools.tools ?? []);
       this.clients.set(server.name, client);
       this.status.set(server.name, { status: "ok" });
-      this.registerTools(server, tools.tools ?? []);
+      this.registerTools(server, enrichedTools);
       this.store.upsertToolsCache(this.profileName, server.name, {
         status: "ok",
-        tools: tools.tools ?? [],
+        tools: enrichedTools,
       });
     } catch (error) {
       const message =
@@ -250,7 +258,7 @@ export class ToolRegistry {
 
   private registerTools(
     server: ServerConfig,
-    tools: Array<{ name: string; description?: string; inputSchema?: unknown }>,
+    tools: ToolDefinition[],
   ): void {
     const allow = server.tools?.allow ?? ["*"];
     const aliasMap = server.tools?.aliases ?? {};
@@ -271,7 +279,7 @@ export class ToolRegistry {
       }
       this.tools.set(publicName, {
         publicName,
-        summary: tool.description ?? "",
+        summary: tool.summary ?? this.buildSummary(tool.description),
         tool,
         serverName: server.name,
         downstreamName: tool.name,
@@ -284,6 +292,32 @@ export class ToolRegistry {
       return true;
     }
     return allow.includes(toolName);
+  }
+
+  private enrichTools(tools: ToolDefinition[]): ToolDefinition[] {
+    return tools.map((tool) => ({
+      ...tool,
+      summary: tool.summary ?? this.buildSummary(tool.description),
+    }));
+  }
+
+  private buildSummary(description?: string): string {
+    if (!description) {
+      return "";
+    }
+    const trimmed = description.trim();
+    if (!trimmed) {
+      return "";
+    }
+    const match = trimmed.match(/^.*?[.!?](\s|$)/);
+    if (match) {
+      return match[0].trim();
+    }
+    const firstLine = trimmed.split(/\r?\n/).find((line) => line.trim());
+    if (!firstLine) {
+      return "";
+    }
+    return firstLine.replace(/^#+\s*/, "").trim();
   }
 
 }

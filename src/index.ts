@@ -445,7 +445,7 @@ async function connectAndDiscover(
 
   const credentialStore = new CredentialStore({ dataDir: path.dirname(dbPath) });
   const registry = new ToolRegistry(profileName, localStore, credentialStore);
-  let tools: Array<{ name: string; description?: string; inputSchema?: unknown }>;
+  let tools: Array<{ name: string; description?: string; summary?: string; inputSchema?: unknown }>;
   let activeServer = server;
   try {
     tools = await registry.discoverServerTools(activeServer);
