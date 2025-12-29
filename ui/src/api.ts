@@ -65,9 +65,26 @@ export async function loadToolDetail(
   serverName: string,
   toolName: string,
 ): Promise<{
-  tool: { name: string; description?: string; summary?: string; inputSchema?: unknown };
+  tool: {
+    name: string;
+    description?: string;
+    summary?: string;
+    enabled?: boolean;
+    inputSchema?: unknown;
+  };
 }>{
   return request(`/api/tools/${encodeURIComponent(serverName)}/${encodeURIComponent(toolName)}`);
+}
+
+export async function updateToolEnabled(
+  serverName: string,
+  toolName: string,
+  enabled: boolean,
+): Promise<{ ok: true }> {
+  return request(`/api/tools/${encodeURIComponent(serverName)}/${encodeURIComponent(toolName)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ enabled }),
+  });
 }
 
 export async function loadMcpTools(): Promise<{

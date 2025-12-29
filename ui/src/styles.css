@@ -364,6 +364,10 @@ button:hover:not(:disabled) {
   transform: none;
 }
 
+.link.muted {
+  color: var(--muted);
+}
+
 .status {
   margin-top: 12px;
   padding: 10px 12px;
@@ -425,6 +429,26 @@ button:hover:not(:disabled) {
   gap: 10px;
   font-size: 0.88rem;
   color: var(--muted);
+}
+
+.tool-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.toggle input {
+  accent-color: var(--accent);
 }
 
 .tool-group .link {

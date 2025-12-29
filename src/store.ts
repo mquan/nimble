@@ -9,6 +9,7 @@ type ToolsCacheEntry = {
     name: string;
     description?: string;
     summary?: string;
+    enabled?: boolean;
     inputSchema?: unknown;
   }>;
 };

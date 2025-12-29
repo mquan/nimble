@@ -11,6 +11,7 @@ import {
   loadToolDetail,
   loadToolsCache,
   callMcpTool,
+  updateToolEnabled,
   removeServer,
   saveServer,
 } from "./api";
@@ -155,12 +156,19 @@ function highlightSchemaJson(value: unknown) {
 }
 
 function uniqueTools(
-  tools: Array<{ name: string; description?: string; summary?: string; inputSchema?: unknown }>,
+  tools: Array<{
+    name: string;
+    description?: string;
+    summary?: string;
+    enabled?: boolean;
+    inputSchema?: unknown;
+  }>,
 ) {
   const seen = new Map<string, {
     name: string;
     description?: string;
     summary?: string;
+    enabled?: boolean;
     inputSchema?: unknown;
   }>();
   for (const tool of tools) {
@@ -184,7 +192,13 @@ export default function App() {
   const [stdioError, setStdioError] = useState<string>("");
   const [toolDetail, setToolDetail] = useState<{
     serverName: string;
-    tool: { name: string; description?: string; summary?: string; inputSchema?: unknown };
+    tool: {
+      name: string;
+      description?: string;
+      summary?: string;
+      enabled?: boolean;
+      inputSchema?: unknown;
+    };
   } | null>(null);
   const [toolLoading, setToolLoading] = useState(false);
   const [toolError, setToolError] = useState("");
@@ -426,6 +440,30 @@ export default function App() {
       setToolError((error as Error).message);
     } finally {
       setToolLoading(false);
+    }
+  }
+
+  async function handleToolToggle(
+    serverName: string,
+    toolName: string,
+    enabled: boolean,
+  ) {
+    setIsBusy(true);
+    try {
+      await updateToolEnabled(serverName, toolName, enabled);
+      await refreshAll();
+      if (
+        toolDetail &&
+        toolDetail.serverName === serverName &&
+        toolDetail.tool.name === toolName
+      ) {
+        const data = await loadToolDetail(serverName, toolName);
+        setToolDetail({ serverName, tool: data.tool });
+      }
+    } catch (error) {
+      setStatus({ message: (error as Error).message, tone: "error" });
+    } finally {
+      setIsBusy(false);
     }
   }
 
@@ -674,13 +712,25 @@ export default function App() {
                     </div>
                     <ul>
                       {tools.map((tool) => (
-                        <li key={tool.name}>
+                        <li key={tool.name} className="tool-row">
                           <button
-                            className="link"
+                            className={tool.enabled === false ? "link muted" : "link"}
                             onClick={() => openToolDetail(name, tool.name)}
                           >
                             {tool.name}
                           </button>
+                          <label className="toggle">
+                            <input
+                              type="checkbox"
+                              checked={tool.enabled !== false}
+                              onChange={(event) =>
+                                handleToolToggle(name, tool.name, event.target.checked)
+                              }
+                              onClick={(event) => event.stopPropagation()}
+                              disabled={isBusy}
+                            />
+                            <span>Enabled</span>
+                          </label>
                         </li>
                       ))}
                     </ul>

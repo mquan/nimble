@@ -21,12 +21,14 @@ type ToolEntry = {
   tool: unknown;
   serverName: string;
   downstreamName: string;
+  enabled: boolean;
 };
 
 type ToolDefinition = {
   name: string;
   description?: string;
   summary?: string;
+  enabled?: boolean;
   inputSchema?: unknown;
 };
 
@@ -61,14 +63,17 @@ export class ToolRegistry {
     const client = await this.connectClient(server);
     const tools = await client.listTools();
     await client.close();
-    return this.enrichTools(tools.tools ?? []);
+    const enabledByName = this.getEnabledOverrides(server.name);
+    return this.enrichTools(tools.tools ?? [], enabledByName);
   }
 
   listSummaries(): { name: string; summary: string }[] {
-    return [...this.tools.values()].map((entry) => ({
-      name: entry.publicName,
-      summary: entry.summary,
-    }));
+    return [...this.tools.values()]
+      .filter((entry) => entry.enabled)
+      .map((entry) => ({
+        name: entry.publicName,
+        summary: entry.summary,
+      }));
   }
 
   getTool(name: string): unknown | null {
@@ -76,10 +81,18 @@ export class ToolRegistry {
     return entry?.tool ?? null;
   }
 
+  getToolEnabled(name: string): boolean | null {
+    const entry = this.tools.get(name);
+    return entry ? entry.enabled : null;
+  }
+
   async execute(name: string, args: Record<string, unknown>) {
     const entry = this.tools.get(name);
     if (!entry) {
       throw new Error(`Tool not found: ${name}`);
+    }
+    if (!entry.enabled) {
+      throw new Error(`Tool disabled: ${name}`);
     }
     const client = this.clients.get(entry.serverName);
     if (!client) {
@@ -103,7 +116,8 @@ export class ToolRegistry {
     try {
       const client = await this.connectClient(server);
       const tools = await client.listTools();
-      const enrichedTools = this.enrichTools(tools.tools ?? []);
+      const enabledByName = this.getEnabledOverrides(server.name);
+      const enrichedTools = this.enrichTools(tools.tools ?? [], enabledByName);
       this.clients.set(server.name, client);
       this.status.set(server.name, { status: "ok" });
       this.registerTools(server, enrichedTools);
@@ -277,12 +291,14 @@ export class ToolRegistry {
         console.error(`Tool name collision: ${publicName}`);
         continue;
       }
+      const enabled = tool.enabled !== false;
       this.tools.set(publicName, {
         publicName,
         summary: tool.summary ?? this.buildSummary(tool.description),
-        tool,
+        tool: { ...tool, enabled },
         serverName: server.name,
         downstreamName: tool.name,
+        enabled,
       });
     }
   }
@@ -294,11 +310,30 @@ export class ToolRegistry {
     return allow.includes(toolName);
   }
 
-  private enrichTools(tools: ToolDefinition[]): ToolDefinition[] {
+  private enrichTools(
+    tools: ToolDefinition[],
+    enabledByName?: Map<string, boolean>,
+  ): ToolDefinition[] {
     return tools.map((tool) => ({
       ...tool,
       summary: tool.summary ?? this.buildSummary(tool.description),
+      enabled: enabledByName?.get(tool.name) ?? tool.enabled ?? true,
     }));
+  }
+
+  setToolEnabled(serverName: string, toolName: string, enabled: boolean): boolean {
+    let updated = false;
+    for (const entry of this.tools.values()) {
+      if (entry.serverName !== serverName || entry.downstreamName !== toolName) {
+        continue;
+      }
+      entry.enabled = enabled;
+      if (entry.tool && typeof entry.tool === "object") {
+        (entry.tool as { enabled?: boolean }).enabled = enabled;
+      }
+      updated = true;
+    }
+    return updated;
   }
 
   private buildSummary(description?: string): string {
@@ -318,6 +353,18 @@ export class ToolRegistry {
       return "";
     }
     return firstLine.replace(/^#+\s*/, "").trim();
+  }
+
+  private getEnabledOverrides(serverName: string): Map<string, boolean> {
+    const cache = this.store.getToolsCache(this.profileName);
+    const entry = cache.servers[serverName];
+    const overrides = new Map<string, boolean>();
+    for (const tool of entry?.tools ?? []) {
+      if (typeof tool.enabled === "boolean") {
+        overrides.set(tool.name, tool.enabled);
+      }
+    }
+    return overrides;
   }
 
 }

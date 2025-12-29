@@ -545,6 +545,47 @@ async function handleApiRequest(
     return;
   }
 
+  if (req.method === "PATCH" && url.pathname.startsWith("/api/tools/")) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts.length >= 3) {
+      const serverName = decodeURIComponent(parts[2] ?? "");
+      const toolName = decodeURIComponent(parts[3] ?? "");
+      const body = (await readJsonBody(req)) as { enabled?: boolean };
+      if (typeof body.enabled !== "boolean") {
+        sendJson(res, 400, { error: "Missing enabled flag" });
+        return;
+      }
+      const cache = localStore.getToolsCache(profileName);
+      const entry = cache.servers[serverName];
+      if (!entry?.tools) {
+        sendJson(res, 404, { error: "Tool not found" });
+        return;
+      }
+      let found = false;
+      const tools = entry.tools.map((tool) => {
+        if (tool.name !== toolName) {
+          return tool;
+        }
+        found = true;
+        return { ...tool, enabled: body.enabled };
+      });
+      if (!found) {
+        sendJson(res, 404, { error: "Tool not found" });
+        return;
+      }
+      localStore.upsertToolsCache(profileName, serverName, {
+        status: entry.status,
+        error: entry.error,
+        tools,
+      });
+      registry.setToolEnabled(serverName, toolName, body.enabled);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+    sendJson(res, 400, { error: "Missing tool path" });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/tools") {
     const cache = localStore.getToolsCache(profileName);
     sendJson(res, 200, cache);
@@ -693,6 +734,19 @@ async function handleMiniMcpToolCall(
     const parsed = args as { name?: string; arguments?: Record<string, unknown> };
     const targetName = parsed.name ?? "";
     const toolArgs = parsed.arguments ?? {};
+    const enabled = registry.getToolEnabled(targetName);
+    if (enabled === false) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: `Tool disabled: ${targetName}`,
+            }),
+          },
+        ],
+      };
+    }
     return registry.execute(targetName, toolArgs);
   }
 
