@@ -7,8 +7,10 @@ import type { ServerConfig, ToolsCache } from "./types";
 import {
   connectServer,
   listServers,
+  loadMcpTools,
   loadToolDetail,
   loadToolsCache,
+  callMcpTool,
   removeServer,
   saveServer,
 } from "./api";
@@ -172,6 +174,7 @@ export default function App() {
   const [servers, setServers] = useState<ServerConfig[]>([]);
   const [cache, setCache] = useState<ToolsCache | null>(null);
   const [selected, setSelected] = useState<ServerConfig>(DEFAULT_SERVER);
+  const [activeTab, setActiveTab] = useState<"config" | "client">("config");
   const [status, setStatus] = useState<{
     message: string;
     tone: "success" | "error" | "info";
@@ -185,6 +188,14 @@ export default function App() {
   } | null>(null);
   const [toolLoading, setToolLoading] = useState(false);
   const [toolError, setToolError] = useState("");
+  const [mcpTools, setMcpTools] = useState<
+    Array<{ name: string; description?: string; inputSchema?: unknown }>
+  >([]);
+  const [selectedMcpTool, setSelectedMcpTool] = useState<string>("");
+  const [clientArgs, setClientArgs] = useState("");
+  const [clientResult, setClientResult] = useState("");
+  const [clientError, setClientError] = useState("");
+  const [clientLoading, setClientLoading] = useState(false);
 
   const totalTools = useMemo(() => {
     if (!cache?.servers) {
@@ -229,6 +240,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (activeTab !== "client") {
+      return;
+    }
+    void refreshClientTools();
+  }, [activeTab]);
+
+  useEffect(() => {
     if (!toolDetail) {
       return;
     }
@@ -271,6 +289,62 @@ export default function App() {
       }
     } finally {
       setIsBusy(false);
+    }
+  }
+
+  async function refreshClientTools() {
+    setClientLoading(true);
+    setClientError("");
+    try {
+      const data = await loadMcpTools();
+      setMcpTools(data.tools ?? []);
+      if (!selectedMcpTool && data.tools?.length) {
+        const first = data.tools[0]?.name ?? "";
+        setSelectedMcpTool(first);
+        setClientArgs(defaultClientArgs(first));
+      }
+    } catch (error) {
+      setClientError((error as Error).message);
+    } finally {
+      setClientLoading(false);
+    }
+  }
+
+  function defaultClientArgs(name: string) {
+    if (name === "list-available-tools") {
+      return "{}";
+    }
+    if (name === "get-tool") {
+      return JSON.stringify({ name: "" }, null, 2);
+    }
+    if (name === "execute-tool") {
+      return JSON.stringify({ name: "", arguments: {} }, null, 2);
+    }
+    return "{}";
+  }
+
+  function selectMcpTool(name: string) {
+    setSelectedMcpTool(name);
+    setClientArgs(defaultClientArgs(name));
+    setClientResult("");
+    setClientError("");
+  }
+
+  async function handleClientCall() {
+    setClientLoading(true);
+    setClientError("");
+    try {
+      const parsed =
+        clientArgs.trim().length === 0 ? {} : (JSON.parse(clientArgs) as unknown);
+      const response = await callMcpTool({
+        name: selectedMcpTool,
+        arguments: parsed,
+      });
+      setClientResult(JSON.stringify(response.result, null, 2));
+    } catch (error) {
+      setClientError((error as Error).message);
+    } finally {
+      setClientLoading(false);
     }
   }
 
@@ -391,7 +465,23 @@ export default function App() {
         </div>
       </header>
 
-      <main className="grid">
+      <div className="tabs">
+        <button
+          className={activeTab === "config" ? "tab active" : "tab"}
+          onClick={() => setActiveTab("config")}
+        >
+          Config
+        </button>
+        <button
+          className={activeTab === "client" ? "tab active" : "tab"}
+          onClick={() => setActiveTab("client")}
+        >
+          MCP Client
+        </button>
+      </div>
+
+      {activeTab === "config" ? (
+        <main className="grid">
         <section className="card list">
           <div className="card-header">
             <h2>Servers</h2>
@@ -606,7 +696,82 @@ export default function App() {
           </div>
         </section>
 
-      </main>
+        </main>
+      ) : (
+        <main className="grid full">
+          <section className="card client">
+            <div className="card-header">
+              <h2>MCP Client</h2>
+              <div className="actions">
+                <button
+                  className="ghost"
+                  onClick={refreshClientTools}
+                  disabled={clientLoading}
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+            <div className="client-grid">
+              <div className="client-list">
+                <p className="panel-label">Server tools</p>
+                {clientLoading && <p className="muted">Loading...</p>}
+                {clientError && <p className="error">{clientError}</p>}
+                {!clientLoading && !clientError && (
+                  <div className="client-tools">
+                    {mcpTools.map((tool) => (
+                      <button
+                        key={tool.name}
+                        className={
+                          tool.name === selectedMcpTool
+                            ? "client-tool active"
+                            : "client-tool"
+                        }
+                        onClick={() => selectMcpTool(tool.name)}
+                      >
+                        <p className="server-name">{tool.name}</p>
+                        <p className="server-meta">{tool.description ?? ""}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="client-panel">
+                <p className="panel-label">Call tool</p>
+                {selectedMcpTool ? (
+                  <>
+                    <label className="wide">
+                      Arguments (JSON)
+                      <textarea
+                        value={clientArgs}
+                        onChange={(event) => setClientArgs(event.target.value)}
+                        rows={8}
+                      />
+                    </label>
+                    <div className="actions">
+                      <button
+                        className="primary"
+                        onClick={handleClientCall}
+                        disabled={clientLoading}
+                      >
+                        Call
+                      </button>
+                    </div>
+                    {clientError && <p className="error">{clientError}</p>}
+                    {clientResult && (
+                      <pre className="code-block json">
+                        <code>{clientResult}</code>
+                      </pre>
+                    )}
+                  </>
+                ) : (
+                  <p className="muted">Select a tool to call.</p>
+                )}
+              </div>
+            </div>
+          </section>
+        </main>
+      )}
 
       {toolDetail && (
         <div className="modal-backdrop" onClick={() => setToolDetail(null)}>

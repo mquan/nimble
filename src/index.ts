@@ -115,43 +115,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  if (name === "list-available-tools") {
-    const summaries = registry.listSummaries();
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(summaries),
-        },
-      ],
-    };
-  }
-
-  if (name === "get-tool") {
-    const toolName = (args?.name as string) ?? "";
-    const tool =
-      registry.getTool(toolName) ??
-      findToolInCache(store, profileName, toolName);
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({ tool, name: args?.name ?? null }),
-        },
-      ],
-    };
-  }
-
-  if (name === "execute-tool") {
-    if (!args || typeof args !== "object") {
-      throw new Error("execute-tool requires arguments");
-    }
-    const targetName = args.name as string;
-    const toolArgs = (args.arguments ?? {}) as Record<string, unknown>;
-    return registry.execute(targetName, toolArgs);
-  }
-
-  throw new Error(`Unknown tool: ${name}`);
+  return handleMiniMcpToolCall(name, args, store, profileName, registry);
 });
 
 const transport = new StdioServerTransport();
@@ -587,6 +551,31 @@ async function handleApiRequest(
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/mcp/tools") {
+    sendJson(res, 200, { tools: [...TOOL_DEFS] });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/mcp/call") {
+    const body = (await readJsonBody(req)) as {
+      name?: string;
+      arguments?: unknown;
+    };
+    if (!body?.name) {
+      sendJson(res, 400, { error: "Missing tool name" });
+      return;
+    }
+    const result = await handleMiniMcpToolCall(
+      body.name,
+      body.arguments,
+      localStore,
+      profileName,
+      registry,
+    );
+    sendJson(res, 200, { result });
+    return;
+  }
+
   sendJson(res, 404, { error: "Not found" });
 }
 
@@ -661,6 +650,53 @@ function mimeType(ext: string): string {
     default:
       return "application/octet-stream";
   }
+}
+
+async function handleMiniMcpToolCall(
+  name: string,
+  args: unknown,
+  store: ConfigStore,
+  profileName: string,
+  registry: ToolRegistry,
+) {
+  if (name === "list-available-tools") {
+    const summaries = registry.listSummaries();
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(summaries),
+        },
+      ],
+    };
+  }
+
+  if (name === "get-tool") {
+    const toolName = (args as { name?: string })?.name ?? "";
+    const tool =
+      registry.getTool(toolName) ??
+      findToolInCache(store, profileName, toolName);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ tool, name: toolName }),
+        },
+      ],
+    };
+  }
+
+  if (name === "execute-tool") {
+    if (!args || typeof args !== "object") {
+      throw new Error("execute-tool requires arguments");
+    }
+    const parsed = args as { name?: string; arguments?: Record<string, unknown> };
+    const targetName = parsed.name ?? "";
+    const toolArgs = parsed.arguments ?? {};
+    return registry.execute(targetName, toolArgs);
+  }
+
+  throw new Error(`Unknown tool: ${name}`);
 }
 
 async function runOAuthFlow(

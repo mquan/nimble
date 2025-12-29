@@ -69,3 +69,19 @@ export async function loadToolDetail(
 }>{
   return request(`/api/tools/${encodeURIComponent(serverName)}/${encodeURIComponent(toolName)}`);
 }
+
+export async function loadMcpTools(): Promise<{
+  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>;
+}> {
+  return request("/api/mcp/tools");
+}
+
+export async function callMcpTool(payload: {
+  name: string;
+  arguments?: unknown;
+}): Promise<{ result: unknown }> {
+  return request("/api/mcp/call", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

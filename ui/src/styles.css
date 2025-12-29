@@ -113,6 +113,34 @@ h1 {
   gap: 24px;
 }
 
+.grid.full {
+  grid-template-columns: 1fr;
+}
+
+.tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 0 0 8px;
+  margin: 0 0 18px;
+  border-bottom: 1px solid var(--outline);
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  padding: 8px 14px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-radius: 999px;
+}
+
+.tab.active {
+  color: var(--ink);
+  background: rgba(59, 122, 87, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(59, 122, 87, 0.25);
+}
+
 .card {
   background: var(--card);
   border-radius: 20px;
@@ -406,6 +434,41 @@ button:hover:not(:disabled) {
   border-radius: 10px;
 }
 
+.client-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.client-list {
+  display: grid;
+  gap: 10px;
+}
+
+.client-tools {
+  display: grid;
+  gap: 10px;
+}
+
+.client-tool {
+  border: 1px solid var(--outline);
+  background: #fffdf8;
+  padding: 10px 12px;
+  border-radius: 14px;
+  text-align: left;
+}
+
+.client-tool.active {
+  border-color: var(--accent);
+  box-shadow: 0 10px 24px rgba(59, 122, 87, 0.18);
+}
+
+.client-panel {
+  display: grid;
+  gap: 12px;
+}
+
 .token-metric {
   background: rgba(30, 27, 22, 0.08);
   padding: 4px 10px;
@@ -611,5 +674,9 @@ button:hover:not(:disabled) {
 
   .actions {
     flex-wrap: wrap;
+  }
+
+  .client-grid {
+    grid-template-columns: 1fr;
   }
 }
