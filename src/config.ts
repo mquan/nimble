@@ -3,7 +3,6 @@ import path from "node:path";
 export type Transport = "stdio" | "http" | "sse";
 
 export type ToolConfig = {
-  allow: string[];
   aliases?: Record<string, string>;
 };
 

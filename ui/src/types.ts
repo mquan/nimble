@@ -4,7 +4,7 @@ export type ServerConfig = {
   url?: string;
   command?: string;
   args?: string[];
-  tools?: { allow: string[]; aliases?: Record<string, string> };
+  tools?: { aliases?: Record<string, string> };
   auth?: {
     type: "bearer" | "basic" | "apiKey" | "oauth";
     credentialRef: string;

@@ -274,7 +274,6 @@ export class ToolRegistry {
     server: ServerConfig,
     tools: ToolDefinition[],
   ): void {
-    const allow = server.tools?.allow ?? ["*"];
     const aliasMap = server.tools?.aliases ?? {};
     const aliasByTool = new Map<string, string>();
     for (const [alias, original] of Object.entries(aliasMap)) {
@@ -282,9 +281,6 @@ export class ToolRegistry {
     }
 
     for (const tool of tools) {
-      if (!this.isAllowed(allow, tool.name)) {
-        continue;
-      }
       const alias = aliasByTool.get(tool.name);
       const publicName = alias ?? `${server.name}/${tool.name}`;
       if (this.tools.has(publicName)) {
@@ -301,13 +297,6 @@ export class ToolRegistry {
         enabled,
       });
     }
-  }
-
-  private isAllowed(allow: string[], toolName: string): boolean {
-    if (allow.includes("*")) {
-      return true;
-    }
-    return allow.includes(toolName);
   }
 
   private enrichTools(

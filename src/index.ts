@@ -176,7 +176,6 @@ function ensureOAuthServer(
     name,
     transport,
     url: selection.url,
-    tools: { allow: ["*"] },
     auth: buildOAuthAuth(name, "http://127.0.0.1:8787/callback"),
   };
   store.upsertServer(profileName, server);
@@ -348,7 +347,7 @@ async function handleConnectCommand(dbPath: string): Promise<void> {
     profile: args["--profile"],
   });
   console.log(
-    `Connected and discovered ${result.allow.length} tools for ${result.server.name}`,
+    `Connected and discovered ${result.tools.length} tools for ${result.server.name}`,
   );
 }
 
@@ -382,7 +381,7 @@ type ConnectInput = {
 async function connectAndDiscover(
   dbPath: string,
   input: ConnectInput,
-): Promise<{ server: ServerConfig; allow: string[] }> {
+): Promise<{ server: ServerConfig; tools: Array<{ name: string }> }> {
   const localStore = new ConfigStore(dbPath);
   const profileName = input.profile ?? localStore.getActiveProfileName();
   const existing = localStore.findServerByName(profileName, input.name);
@@ -396,7 +395,7 @@ async function connectAndDiscover(
     url: input.url ?? existing?.url,
     command: input.command ?? existing?.command,
     args: input.args ?? existing?.args,
-    tools: existing?.tools ?? { allow: ["*"] },
+    tools: existing?.tools,
     auth: existing?.auth,
   };
   if (transport === "stdio") {
@@ -437,17 +436,15 @@ async function connectAndDiscover(
     }
   }
 
-  const allow = tools.map((tool) => tool.name);
   const entry: ServerConfig = {
     ...activeServer,
-    tools: { allow },
   };
   localStore.upsertServer(profileName, entry);
   localStore.upsertToolsCache(profileName, entry.name, {
     status: "ok",
     tools,
   });
-  return { server: entry, allow };
+  return { server: entry, tools };
 }
 
 type HttpServerOptions = {
@@ -520,7 +517,7 @@ async function handleApiRequest(
       ...body,
       profile: profileName,
     });
-    sendJson(res, 200, { server: result.server, allow: result.allow });
+    sendJson(res, 200, { server: result.server, tools: result.tools });
     return;
   }
 

@@ -17,7 +17,6 @@ test("ConfigStore creates default profile and persists servers", () => {
     transport: "stdio",
     command: "node",
     args: ["server.js"],
-    tools: { allow: ["*"] },
   });
 
   const servers = store.listServers(profile);

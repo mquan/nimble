@@ -20,7 +20,6 @@ const DEFAULT_SERVER: ServerConfig = {
   name: "",
   transport: "http",
   url: "",
-  tools: { allow: ["*"] },
 };
 
 function formatUpdatedAt(value?: number) {
@@ -416,7 +415,6 @@ export default function App() {
       ...DEFAULT_SERVER,
       transport: "http",
       url: "",
-      tools: { allow: ["*"] },
     });
   }
 
@@ -662,21 +660,6 @@ export default function App() {
                 {stdioError && <span className="error">{stdioError}</span>}
               </label>
             )}
-            <label className="wide">
-              Allowlist
-              <input
-                value={selected.tools?.allow?.join(",") ?? "*"}
-                onChange={(event) =>
-                  updateSelected("tools", {
-                    allow: event.target.value
-                      .split(",")
-                      .map((value) => value.trim())
-                      .filter(Boolean),
-                  })
-                }
-                placeholder="*"
-              />
-            </label>
           </div>
 
           {status && (

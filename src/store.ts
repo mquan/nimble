@@ -51,7 +51,7 @@ export class ConfigStore {
     this.ensureProfile(profileName);
     const rows = this.db
       .prepare(
-        "SELECT name, transport, url, command, args_json, tools_allow_json, tools_aliases_json, auth_json FROM servers WHERE profile = ? ORDER BY name",
+        "SELECT name, transport, url, command, args_json, tools_aliases_json, auth_json FROM servers WHERE profile = ? ORDER BY name",
       )
       .all(profileName) as Array<{
       name: string;
@@ -59,28 +59,26 @@ export class ConfigStore {
       url?: string;
       command?: string;
       args_json?: string;
-      tools_allow_json?: string;
       tools_aliases_json?: string;
       auth_json?: string;
     }>;
 
-    return rows.map((row) => ({
-      name: row.name,
-      transport: row.transport,
-      url: row.url ?? undefined,
-      command: row.command ?? undefined,
-      args: parseJson<string[]>(row.args_json) ?? undefined,
-      tools: {
-        allow: parseJson<string[]>(row.tools_allow_json) ?? ["*"],
-        aliases: parseJson<Record<string, string>>(row.tools_aliases_json) ?? undefined,
-      },
-      auth: parseJson<ServerConfig["auth"]>(row.auth_json) ?? undefined,
-    }));
+    return rows.map((row) => {
+      const aliases = parseJson<Record<string, string>>(row.tools_aliases_json) ?? undefined;
+      return {
+        name: row.name,
+        transport: row.transport,
+        url: row.url ?? undefined,
+        command: row.command ?? undefined,
+        args: parseJson<string[]>(row.args_json) ?? undefined,
+        tools: aliases ? { aliases } : undefined,
+        auth: parseJson<ServerConfig["auth"]>(row.auth_json) ?? undefined,
+      };
+    });
   }
 
   upsertServer(profileName: string, server: ServerConfig): void {
     this.ensureProfile(profileName);
-    const toolsAllow = server.tools?.allow ?? ["*"];
     const toolsAliases = server.tools?.aliases ?? undefined;
     const args = server.args ?? undefined;
     const auth = server.auth ?? undefined;
@@ -97,7 +95,7 @@ export class ConfigStore {
         server.url ?? null,
         server.command ?? null,
         args ? JSON.stringify(args) : null,
-        JSON.stringify(toolsAllow),
+        null,
         toolsAliases ? JSON.stringify(toolsAliases) : null,
         auth ? JSON.stringify(auth) : null,
         Date.now(),
