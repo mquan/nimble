@@ -418,6 +418,9 @@ export default function App() {
   }
 
   async function handleRemove(name: string) {
+    if (!window.confirm(`Remove server "${name}"?`)) {
+      return;
+    }
     setIsBusy(true);
     setStatus(null);
     try {

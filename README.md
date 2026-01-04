@@ -30,7 +30,7 @@ nimble runs over stdio. Configure your MCP client to launch it:
 }
 ```
 
-Add OpenAI env vars here if you want LLM summaries in this mode.
+Add OpenAI env vars here if you want LLM summaries.
 Example:
 ```
 {
