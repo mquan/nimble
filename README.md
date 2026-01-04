@@ -54,25 +54,28 @@ Once configuration in your MCP client complete, open the config UI (http://local
 **Add a server and authenticate**
 
 <br/>
-<img width="2492" height="1502" alt="Image" src="https://github.com/user-attachments/assets/9217ee28-4c5f-49cb-a1aa-1ae99cdfc644" />
+<img width="2492" height="1502" alt="Server configs" src="images/server-config.png" />
+
 <br/>
 <br/>
 
 If you provided an `OPENAI_API_KEY`, the summaries will be automatically inferred by LLM (OpenAI for now). Otherwise, the first sentence from the description will be used. You may also customize this by clicking on the tool and modify the summary from the tool modal
 
-<img width="768" height="290" alt="Image" src="https://github.com/user-attachments/assets/98105d5c-5611-48fb-a324-9fa4ca58f9d8" />
+<img width="768" height="290" alt="Editing tool summary" src="images/tool-summary-edit.png" />
+
 <br/>
 <br/>
 
 **You can also toggle tools on/off**
 
-<img width="478" height="726" alt="Image" src="https://github.com/user-attachments/assets/251e560e-c854-4787-8ac5-538d924388d7" />
+<img width="478" height="726" alt="Tool toggles" src="images/tool-toggle.png" />
+
 <br/>
 <br/>
 
 **Test out the server from the included MCP client**
 
-<img width="1451" height="851" alt="Image" src="https://github.com/user-attachments/assets/1a00ad1b-6411-4e59-8fab-5cf2a11bf541" />
+<img width="1451" height="851" alt="Testing with MCP client" src="images/mcp-client-test.png" />
 <br/>
 <br/>
 
