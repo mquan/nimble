@@ -325,6 +325,21 @@ export class ToolRegistry {
     return updated;
   }
 
+  setToolSummary(serverName: string, toolName: string, summary: string): boolean {
+    let updated = false;
+    for (const entry of this.tools.values()) {
+      if (entry.serverName !== serverName || entry.downstreamName !== toolName) {
+        continue;
+      }
+      entry.summary = summary;
+      if (entry.tool && typeof entry.tool === "object") {
+        (entry.tool as { summary?: string }).summary = summary;
+      }
+      updated = true;
+    }
+    return updated;
+  }
+
   private buildSummary(description?: string): string {
     if (!description) {
       return "";

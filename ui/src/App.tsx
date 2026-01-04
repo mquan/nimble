@@ -12,6 +12,7 @@ import {
   loadToolsCache,
   callMcpTool,
   updateToolEnabled,
+  updateToolSummary,
   removeServer,
   saveServer,
 } from "./api";
@@ -201,6 +202,8 @@ export default function App() {
   } | null>(null);
   const [toolLoading, setToolLoading] = useState(false);
   const [toolError, setToolError] = useState("");
+  const [summaryDraft, setSummaryDraft] = useState("");
+  const [summarySaving, setSummarySaving] = useState(false);
   const [mcpTools, setMcpTools] = useState<
     Array<{ name: string; description?: string; inputSchema?: unknown }>
   >([]);
@@ -287,6 +290,16 @@ export default function App() {
     setStdioJson(JSON.stringify(payload, null, 2));
     setStdioError("");
   }, [selected.command, selected.args, selected.transport]);
+
+  useEffect(() => {
+    if (!toolDetail) {
+      setSummaryDraft("");
+      return;
+    }
+    setSummaryDraft(
+      resolveToolSummary(toolDetail.tool.description, toolDetail.tool.summary),
+    );
+  }, [toolDetail]);
 
   async function refreshAll() {
     setIsBusy(true);
@@ -438,6 +451,31 @@ export default function App() {
       setToolError((error as Error).message);
     } finally {
       setToolLoading(false);
+    }
+  }
+
+  async function handleSummarySave() {
+    if (!toolDetail) {
+      return;
+    }
+    setSummarySaving(true);
+    setToolError("");
+    try {
+      await updateToolSummary(
+        toolDetail.serverName,
+        toolDetail.tool.name,
+        summaryDraft.trim(),
+      );
+      await refreshAll();
+      const data = await loadToolDetail(
+        toolDetail.serverName,
+        toolDetail.tool.name,
+      );
+      setToolDetail({ serverName: toolDetail.serverName, tool: data.tool });
+    } catch (error) {
+      setToolError((error as Error).message);
+    } finally {
+      setSummarySaving(false);
     }
   }
 
@@ -828,17 +866,23 @@ export default function App() {
             {toolError && <p className="error">{toolError}</p>}
             {!toolLoading && !toolError && (
               <div className="modal-body">
-                {(toolDetail.tool.description || toolDetail.tool.summary) && (
-                  <div className="modal-section">
-                    <h4>Summary</h4>
-                    <p>
-                      {resolveToolSummary(
-                        toolDetail.tool.description,
-                        toolDetail.tool.summary,
-                      )}
-                    </p>
+                <div className="modal-section">
+                  <h4>Summary</h4>
+                  <textarea
+                    value={summaryDraft}
+                    onChange={(event) => setSummaryDraft(event.target.value)}
+                    rows={3}
+                  />
+                    <div className="actions">
+                      <button
+                        className="primary"
+                        onClick={handleSummarySave}
+                        disabled={summarySaving || toolLoading}
+                      >
+                        {summarySaving ? "Saving..." : "Save summary"}
+                      </button>
                   </div>
-                )}
+                </div>
                 {toolDetail.tool.description && (
                   <div className="modal-section">
                     <h4>Description</h4>

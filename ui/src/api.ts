@@ -87,6 +87,17 @@ export async function updateToolEnabled(
   });
 }
 
+export async function updateToolSummary(
+  serverName: string,
+  toolName: string,
+  summary: string,
+): Promise<{ ok: true }> {
+  return request(`/api/tools/${encodeURIComponent(serverName)}/${encodeURIComponent(toolName)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ summary }),
+  });
+}
+
 export async function loadMcpTools(): Promise<{
   tools: Array<{ name: string; description?: string; inputSchema?: unknown }>;
 }> {

@@ -547,9 +547,14 @@ async function handleApiRequest(
     if (parts.length >= 3) {
       const serverName = decodeURIComponent(parts[2] ?? "");
       const toolName = decodeURIComponent(parts[3] ?? "");
-      const body = (await readJsonBody(req)) as { enabled?: boolean };
-      if (typeof body.enabled !== "boolean") {
-        sendJson(res, 400, { error: "Missing enabled flag" });
+      const body = (await readJsonBody(req)) as {
+        enabled?: boolean;
+        summary?: string;
+      };
+      const hasEnabled = typeof body.enabled === "boolean";
+      const hasSummary = typeof body.summary === "string";
+      if (!hasEnabled && !hasSummary) {
+        sendJson(res, 400, { error: "Missing enabled or summary" });
         return;
       }
       const cache = localStore.getToolsCache(profileName);
@@ -564,7 +569,11 @@ async function handleApiRequest(
           return tool;
         }
         found = true;
-        return { ...tool, enabled: body.enabled };
+        return {
+          ...tool,
+          enabled: hasEnabled ? body.enabled : tool.enabled,
+          summary: hasSummary ? body.summary : tool.summary,
+        };
       });
       if (!found) {
         sendJson(res, 404, { error: "Tool not found" });
@@ -575,7 +584,12 @@ async function handleApiRequest(
         error: entry.error,
         tools,
       });
-      registry.setToolEnabled(serverName, toolName, body.enabled);
+      if (hasEnabled) {
+        registry.setToolEnabled(serverName, toolName, body.enabled as boolean);
+      }
+      if (hasSummary) {
+        registry.setToolSummary(serverName, toolName, body.summary as string);
+      }
       sendJson(res, 200, { ok: true });
       return;
     }
