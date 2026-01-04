@@ -11,6 +11,8 @@ MCP clients naively include all tool descriptions and schemas on the context win
 
 We see over 99% token savings when tested with popular MCP servers (Notion, Linear, Figma, etc.)
 
+<img width="874" height="554" alt="Image" src="https://github.com/user-attachments/assets/39d351bc-602c-4583-89d6-48b72e7a330a" />
+
 
 ## Installation
 nimble runs over stdio. Configure your MCP client to launch it:
@@ -18,11 +20,11 @@ nimble runs over stdio. Configure your MCP client to launch it:
 {
   "mcpServers": {
     "nimble-mcp": {
-      "command": "node",
+      "command": "npx",
       "args": ["-y", "nimble-mcp"],
       "env": {
         "NIMBLE_ENCRYPTION_KEY": "your-encryption-key",
-        "NIMBLE_UI_PORT": "3000"
+        "NIMBLE_UI_PORT": "3333"
       }
     }
   }
@@ -35,7 +37,7 @@ Example:
 {
   "mcpServers": {
     "nimble-mcp": {
-      "command": "node",
+      "command": "npx",
       "args": ["-y", "nimble-mcp"],
       "env": {
         "NIMBLE_ENCRYPTION_KEY": "your-encryption-key",
@@ -48,12 +50,12 @@ Example:
 ```
 
 ## Quick guide
-Once configuration in your MCP client complete, open http://localhost:3000/ in the browser to setup.
+Once configuration in your MCP client complete, open the config UI (http://localhost:3333/) in the browser to setup.
 
 **Add a server and authenticate**
 
 <br/>
-<img width="1437" height="850" alt="Image" src="https://github.com/user-attachments/assets/c722da72-acf4-465c-afc2-3b5b728db4bc" />
+<img width="2492" height="1502" alt="Image" src="https://github.com/user-attachments/assets/9217ee28-4c5f-49cb-a1aa-1ae99cdfc644" />
 <br/>
 <br/>
 
@@ -98,7 +100,7 @@ npm run ui:preview
 ```
 
 ### Config UI
-The server also hosts a local config UI on `http://127.0.0.1:3000`.
+The server also hosts a local config UI on `http://127.0.0.1:3333`.
 The UI reads and writes the SQLite DB.
 
 Build UI once:

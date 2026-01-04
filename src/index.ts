@@ -101,7 +101,7 @@ const registry = new ToolRegistry(
 );
 await registry.initialize();
 
-const uiPort = Number(process.env.NIMBLE_UI_PORT ?? 3000);
+const uiPort = Number(process.env.NIMBLE_UI_PORT ?? 3333);
 startHttpServer({
   port: uiPort,
   dbPath,
