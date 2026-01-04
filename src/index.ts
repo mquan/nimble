@@ -73,15 +73,6 @@ function normalizeUrl(value: string): string {
 
 const dbPath = resolveDbPath(getArgValue("--db"));
 const store = new ConfigStore(dbPath);
-const primaryCommand = process.argv[2];
-if (primaryCommand === "auth") {
-  await handleAuthCommand(dbPath);
-  process.exit(0);
-}
-if (primaryCommand === "discover" || primaryCommand === "connect") {
-  await handleConnectCommand(dbPath);
-  process.exit(0);
-}
 const profileName = getArgValue("--profile") ?? store.getActiveProfileName();
 
 const oauthServerName = getArgValue("--oauth-server");
@@ -286,93 +277,6 @@ function startLocalCallbackServer(redirectUrl: string): Promise<string> {
     });
     server.listen(Number(url.port), url.hostname);
   });
-}
-
-async function handleAuthCommand(dbPath: string): Promise<void> {
-  const action = process.argv[3];
-  const ref = process.argv[4];
-  if (!action || !ref) {
-    throw new Error("Usage: mini-mcp auth <set|get|remove|oauth-reset> <ref>");
-  }
-  const store = new CredentialStore({ dataDir: path.dirname(dbPath) });
-  if (action === "set") {
-    const value = process.argv[5] ?? readStdin().trim();
-    if (!value) {
-      throw new Error("Missing credential value");
-    }
-    store.set(ref, value);
-    console.log(`Saved credential: ${ref}`);
-    return;
-  }
-  if (action === "get") {
-    const value = store.get(ref);
-    if (!value) {
-      console.log("");
-      return;
-    }
-    console.log(value);
-    return;
-  }
-  if (action === "remove") {
-    store.remove(ref);
-    console.log(`Removed credential: ${ref}`);
-    return;
-  }
-  if (action === "oauth-reset") {
-    store.remove(`${ref}:tokens`);
-    store.remove(`${ref}:client`);
-    store.remove(`${ref}:verifier`);
-    console.log(`Reset OAuth credentials: ${ref}`);
-    return;
-  }
-  throw new Error("Unknown auth action");
-}
-
-function readStdin(): string {
-  return fs.readFileSync(0, "utf8");
-}
-
-async function handleConnectCommand(dbPath: string): Promise<void> {
-  const args = parseArgs(process.argv.slice(3));
-  const name = args["--name"];
-  const url = args["--server-url"];
-  const transportArg = normalizeTransport(args["--transport"]);
-  const command = args["--command"];
-  const commandArgs = args["--args"]?.split(",").filter(Boolean);
-
-  if (!name) {
-    throw new Error("connect requires --name");
-  }
-
-  const result = await connectAndDiscover(dbPath, {
-    name,
-    transport: transportArg,
-    url,
-    command,
-    args: commandArgs,
-    profile: args["--profile"],
-  });
-  console.log(
-    `Connected and discovered ${result.tools.length} tools for ${result.server.name}`,
-  );
-}
-
-function parseArgs(argv: string[]): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (let i = 0; i < argv.length; i += 1) {
-    const key = argv[i];
-    if (!key.startsWith("--")) {
-      continue;
-    }
-    const value = argv[i + 1];
-    if (value && !value.startsWith("--")) {
-      result[key] = value;
-      i += 1;
-    } else {
-      result[key] = "true";
-    }
-  }
-  return result;
 }
 
 type ConnectInput = {

@@ -36,26 +36,6 @@ MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js --server-url http
 ```
 If the server does not exist yet, this will auto-add a default OAuth entry and use a local callback at `http://127.0.0.1:8787/callback`.
 
-## Credential CLI
-```
-MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth set <ref> <value>
-MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth get <ref>
-MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth remove <ref>
-MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth oauth-reset <ref>
-```
-Stdin example:
-```
-echo "my-secret-token" | MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js auth set remote-token
-```
-
-## Connect CLI
-```
-MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js connect --name local --transport stdio --command node --args ./server.js
-MINI_MCP_ENCRYPTION_KEY=your-encryption-key node dist/index.js connect --name remote --transport streamableHttp --server-url https://mcp.example.com/mcp
-```
-`discover` is an alias for `connect`.
-Add `--db /path/to/mini-mcp.sqlite` to target a different database.
-
 ## Run (dev)
 ```
 npm run dev
@@ -128,7 +108,7 @@ Optional: auto-generate tool summaries on connect using OpenAI.
 ```
 OPENAI_API_KEY=sk-... \
 MINI_MCP_OPENAI_MODEL=gpt-5-mini \
-node dist/index.js connect --name remote --transport streamableHttp --server-url https://mcp.example.com/mcp
+npm run dev
 ```
 
 ## Local Test
