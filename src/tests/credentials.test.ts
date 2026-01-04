@@ -6,10 +6,10 @@ import path from "node:path";
 
 import { CredentialStore } from "../credentials.js";
 
-const ENV_KEY = "MINI_MCP_ENCRYPTION_KEY";
+const ENV_KEY = "NIMBLE_ENCRYPTION_KEY";
 
 test("CredentialStore set/get roundtrip", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-mcp-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimble-"));
   const dataDir = path.join(dir, "data");
   const previous = process.env[ENV_KEY];
   process.env[ENV_KEY] = "test-key";
@@ -27,7 +27,7 @@ test("CredentialStore set/get roundtrip", () => {
 });
 
 test("CredentialStore getJson handles invalid JSON", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-mcp-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimble-"));
   const dataDir = path.join(dir, "data");
   const previous = process.env[ENV_KEY];
   process.env[ENV_KEY] = "test-key";

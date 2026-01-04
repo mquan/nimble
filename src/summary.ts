@@ -16,7 +16,7 @@ type SummaryProviderConfig = {
 
 export function createToolSummaryProvider(): ToolSummaryProvider | undefined {
   const openaiApiKey = process.env.OPENAI_API_KEY;
-  const openaiModel = process.env.MINI_MCP_OPENAI_MODEL ?? "gpt-5-mini";
+  const openaiModel = process.env.NIMBLE_OPENAI_MODEL ?? "gpt-5-mini";
   const config: SummaryProviderConfig = { openaiApiKey, openaiModel };
   if (!config.openaiApiKey) {
     return undefined;

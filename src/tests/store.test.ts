@@ -7,8 +7,8 @@ import path from "node:path";
 import { ConfigStore } from "../store.js";
 
 test("ConfigStore creates default profile and persists servers", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-mcp-"));
-  const dbPath = path.join(dir, "mini-mcp.sqlite");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimble-"));
+  const dbPath = path.join(dir, "nimble.sqlite");
   const store = new ConfigStore(dbPath);
   const profile = store.getActiveProfileName();
 
@@ -26,8 +26,8 @@ test("ConfigStore creates default profile and persists servers", () => {
 });
 
 test("ConfigStore tools cache roundtrip", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-mcp-"));
-  const dbPath = path.join(dir, "mini-mcp.sqlite");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nimble-"));
+  const dbPath = path.join(dir, "nimble.sqlite");
   const store = new ConfigStore(dbPath);
   const profile = store.getActiveProfileName();
 

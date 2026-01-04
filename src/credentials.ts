@@ -4,7 +4,7 @@ import path from "node:path";
 
 import Database from "better-sqlite3";
 
-const ENCRYPTION_KEY_ENV = "MINI_MCP_ENCRYPTION_KEY";
+const ENCRYPTION_KEY_ENV = "NIMBLE_ENCRYPTION_KEY";
 const KEY_LENGTH = 32;
 const SCRYPT_SALT_BYTES = 16;
 const IV_BYTES = 12;

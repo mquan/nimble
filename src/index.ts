@@ -55,7 +55,7 @@ const TOOL_DEFS = [
 ] as const;
 
 const server = new Server(
-  { name: "mini-mcp", version: "0.1.0" },
+  { name: "nimble", version: "0.1.0" },
   { capabilities: { tools: {} } },
 );
 
@@ -99,7 +99,7 @@ const registry = new ToolRegistry(
 );
 await registry.initialize();
 
-const uiPort = Number(process.env.MINI_MCP_UI_PORT ?? 3000);
+const uiPort = Number(process.env.NIMBLE_UI_PORT ?? 3000);
 startHttpServer({
   port: uiPort,
   dbPath,
@@ -186,7 +186,7 @@ function buildOAuthAuth(name: string, redirectUrl: string): OAuthAuthConfig {
     credentialRef,
     redirectUrl,
     clientMetadata: {
-      client_name: "mini-mcp",
+      client_name: "nimble",
       redirect_uris: [redirectUrl],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
@@ -388,7 +388,7 @@ function startHttpServer(options: HttpServerOptions): void {
   });
 
   server.listen(options.port, () => {
-    console.log(`mini-mcp UI listening on http://127.0.0.1:${options.port}`);
+    console.log(`nimble UI listening on http://127.0.0.1:${options.port}`);
   });
 }
 

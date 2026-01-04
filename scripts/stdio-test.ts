@@ -10,7 +10,7 @@ const transport = new StdioClientTransport({
 });
 
 const client = new Client(
-  { name: "mini-mcp-test", version: "0.1.0" },
+  { name: "nimble-test", version: "0.1.0" },
   { capabilities: {} },
 );
 

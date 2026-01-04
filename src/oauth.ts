@@ -79,7 +79,7 @@ export class StoredOAuthProvider implements OAuthClientProvider {
       console.log("Opening browser for authorization...");
       return;
     }
-    console.log("Open this URL to authorize mini-mcp:");
+    console.log("Open this URL to authorize nimble:");
     console.log(url);
   }
 

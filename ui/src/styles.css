@@ -32,13 +32,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  width: 100%;
 }
 
 .hero {
   display: flex;
   justify-content: space-between;
   gap: 32px;
-  align-items: flex-end;
+  align-items: flex-start;
   position: relative;
 }
 
@@ -59,9 +60,16 @@ body {
   margin: 0 0 8px;
 }
 
+.hero-brand {
+  font-size: 1.35rem;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+
 h1 {
   font-family: "Source Serif 4", "Times New Roman", serif;
-  font-size: clamp(2rem, 2.8vw, 3rem);
+  font-size: clamp(1.65rem, 2.2vw, 2.5rem);
+  font-weight: 500;
   margin: 0 0 12px;
 }
 
@@ -71,13 +79,21 @@ h1 {
   max-width: 560px;
 }
 
+.tab-intro {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+  max-width: 720px;
+}
+
 .hero-panel {
   background: var(--card);
   border: 1px solid var(--outline);
-  padding: 18px 24px;
+  padding: 20px 28px;
   border-radius: 16px;
-  min-width: 260px;
-  width: 260px;
+  min-width: 420px;
+  width: 420px;
   box-shadow: var(--shadow);
   display: grid;
   gap: 12px;
@@ -103,21 +119,23 @@ h1 {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
+  width: 100%;
 }
 
 .grid.full {
   grid-template-columns: 1fr;
+  width: 100%;
 }
 
 .tabs {
-  display: inline-flex;
+  display: flex;
   gap: 8px;
   padding: 0;
   margin: 0 0 18px;
-  align-self: flex-start;
-  width: fit-content;
+  align-self: stretch;
+  width: 100%;
 }
 
 .tab {
@@ -691,11 +709,21 @@ button:hover:not(:disabled) {
     align-items: flex-start;
   }
 
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .actions {
     flex-wrap: wrap;
   }
 
   .client-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .grid {
     grid-template-columns: 1fr;
   }
 }

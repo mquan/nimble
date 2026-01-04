@@ -1,7 +1,7 @@
 {
-  "name": "mini-mcp",
+  "name": "nimble",
   "version": "0.1.0",
-  "description": "Unify all MCP tools under one server and save tokens",
+  "description": "Unify all MCP tools under one server and save token cost.",
   "author": "Quan Nguyen",
   "type": "module",
   "main": "dist/index.js",

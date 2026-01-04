@@ -58,8 +58,8 @@ export type Manifest = {
 
 export function resolveDbPath(
   dbPath?: string,
-  envValue = process.env.MINI_MCP_DB_PATH,
+  envValue = process.env.NIMBLE_DB_PATH,
 ): string {
-  const resolved = dbPath ?? envValue ?? path.join(process.cwd(), "mini-mcp.sqlite");
+  const resolved = dbPath ?? envValue ?? path.join(process.cwd(), "nimble.sqlite");
   return path.resolve(resolved);
 }

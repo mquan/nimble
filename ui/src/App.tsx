@@ -507,13 +507,10 @@ export default function App() {
     <div className="page">
       <header className="hero">
         <div>
-          <p className="eyebrow">mini-mcp</p>
-          <h1>
-            Unify all MCP tools in one server and save token cost
-          </h1>
-          <p className="lede">
-            Configure mini-mcp by connecting to MCP servers.
-          </p>
+          <p className="eyebrow hero-brand">nimble</p>
+          <h2>
+            Unify thousands of MCP tools. Save tokens.
+          </h2>
         </div>
         <div className="hero-panel">
           <div>
@@ -556,6 +553,9 @@ export default function App() {
 
       {activeTab === "config" ? (
         <main className="grid">
+        <p className="tab-intro">
+          Configure your nimble server by connecting to MCP servers.
+        </p>
         <section className="card list">
           <div className="card-header">
             <h2>Servers</h2>
@@ -770,6 +770,9 @@ export default function App() {
         </main>
       ) : (
         <main className="grid full">
+          <p className="tab-intro">
+            Test MCP tools by selecting a tool, sending JSON, and viewing the response.
+          </p>
           <section className="card client">
             <div className="card-header">
               <h2>MCP Client</h2>

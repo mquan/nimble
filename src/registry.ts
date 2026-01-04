@@ -175,7 +175,7 @@ export class ToolRegistry {
       throw new Error(`Transport not implemented: ${server.transport}`);
     }
     const client = new Client(
-      { name: "mini-mcp-client", version: "0.1.0" },
+      { name: "nimble-client", version: "0.1.0" },
       { capabilities: {} },
     );
     await client.connect(transport);
@@ -196,19 +196,19 @@ export class ToolRegistry {
     if (server.auth.type === "bearer") {
       return {
         ...process.env,
-        MINI_MCP_AUTH_BEARER: secret,
+        NIMBLE_AUTH_BEARER: secret,
       };
     }
     if (server.auth.type === "basic") {
       return {
         ...process.env,
-        MINI_MCP_AUTH_BASIC: secret,
+        NIMBLE_AUTH_BASIC: secret,
       };
     }
     if (server.auth.type === "apiKey") {
       return {
         ...process.env,
-        MINI_MCP_AUTH_API_KEY: secret,
+        NIMBLE_AUTH_API_KEY: secret,
       };
     }
     return process.env as Record<string, string>;
