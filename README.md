@@ -83,13 +83,6 @@ NIMBLE_OPENAI_MODEL=gpt-5-mini \
 npm run dev
 ```
 
-## Local Test
-```
-npm install
-npm run build
-NIMBLE_ENCRYPTION_KEY=your-encryption-key npx tsx scripts/stdio-test.ts
-```
-
 ## Storage
 nimble stores configuration and tool cache in a local SQLite database.
 
