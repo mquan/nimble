@@ -65,6 +65,10 @@ Build UI once:
 ```
 npm run ui:build
 ```
+Or build UI + server:
+```
+npm run build
+```
 
 Run UI dev server:
 ```

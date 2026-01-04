@@ -8,6 +8,7 @@ import {
 import path from "node:path";
 import http from "node:http";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { OAuthAuthConfig, ServerConfig, Transport } from "./config.js";
 import { resolveDbPath } from "./config.js";
 import { CredentialStore } from "./credentials.js";
@@ -369,7 +370,7 @@ type HttpServerOptions = {
 };
 
 function startHttpServer(options: HttpServerOptions): void {
-  const uiDist = path.join(process.cwd(), "ui", "dist");
+  const uiDist = resolveUiDistDir();
   const server = http.createServer(async (req, res) => {
     if (!req.url || !req.method) {
       sendText(res, 400, "Bad request");
@@ -387,9 +388,36 @@ function startHttpServer(options: HttpServerOptions): void {
     serveStatic(uiDist, url.pathname, res);
   });
 
+  server.on("error", (error) => {
+    const err = error as NodeJS.ErrnoException;
+    if (err.code === "EADDRINUSE") {
+      console.warn(
+        `nimble UI already running on http://127.0.0.1:${options.port}`,
+      );
+      return;
+    }
+    console.error("nimble UI server error:", error);
+  });
+
   server.listen(options.port, () => {
     console.log(`nimble UI listening on http://127.0.0.1:${options.port}`);
   });
+}
+
+function resolveUiDistDir(): string {
+  const runtimeDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(runtimeDir, "ui"),
+    path.join(runtimeDir, "..", "dist", "ui"),
+    path.join(process.cwd(), "dist", "ui"),
+    path.join(process.cwd(), "ui", "dist"),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "index.html"))) {
+      return candidate;
+    }
+  }
+  return candidates[0];
 }
 
 async function handleApiRequest(
@@ -588,7 +616,7 @@ function serveStatic(baseDir: string, requestPath: string, res: http.ServerRespo
       sendFile(indexPath, res);
       return;
     }
-    sendText(res, 404, "UI not built. Run npm run ui:build.");
+    sendText(res, 404, "UI not built. Run npm run ui:build or npm run build.");
     return;
   }
   sendFile(fullPath, res);
