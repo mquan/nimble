@@ -68,7 +68,11 @@ export class ToolRegistry {
     const tools = await client.listTools();
     await client.close();
     const enabledByName = this.getEnabledOverrides(server.name);
-    const toolDefs = await this.applyLlmSummaries(tools.tools ?? []);
+    const cachedTools = this.getCachedTools(server.name);
+    const toolDefs = await this.applyLlmSummaries(
+      tools.tools ?? [],
+      cachedTools,
+    );
     return this.enrichTools(toolDefs, enabledByName);
   }
 
@@ -122,7 +126,11 @@ export class ToolRegistry {
       const client = await this.connectClient(server);
       const tools = await client.listTools();
       const enabledByName = this.getEnabledOverrides(server.name);
-      const toolDefs = await this.applyLlmSummaries(tools.tools ?? []);
+      const cachedTools = this.getCachedTools(server.name);
+      const toolDefs = await this.applyLlmSummaries(
+        tools.tools ?? [],
+        cachedTools,
+      );
       const enrichedTools = this.enrichTools(toolDefs, enabledByName);
       this.clients.set(server.name, client);
       this.status.set(server.name, { status: "ok" });
@@ -377,13 +385,41 @@ export class ToolRegistry {
     return overrides;
   }
 
+  private getCachedTools(
+    serverName: string,
+  ): Map<string, { description?: string; summary?: string }> {
+    const cache = this.store.getToolsCache(this.profileName);
+    const entry = cache.servers[serverName];
+    const cached = new Map<string, { description?: string; summary?: string }>();
+    for (const tool of entry?.tools ?? []) {
+      cached.set(tool.name, {
+        description: tool.description,
+        summary: tool.summary,
+      });
+    }
+    return cached;
+  }
+
   private async applyLlmSummaries(
     tools: ToolDefinition[],
+    cachedTools: Map<string, { description?: string; summary?: string }>,
   ): Promise<ToolDefinition[]> {
     if (!this.summaryProvider) {
       return tools;
     }
-    const targets = tools
+    const withCached = tools.map((tool) => {
+      if (tool.summary || typeof tool.description !== "string") {
+        return tool;
+      }
+      const cached = cachedTools.get(tool.name);
+      const currentDescription = tool.description.trim();
+      const cachedDescription = cached?.description?.trim() ?? "";
+      if (cached?.summary && cachedDescription === currentDescription) {
+        return { ...tool, summary: cached.summary };
+      }
+      return tool;
+    });
+    const targets = withCached
       .filter((tool) => !tool.summary && typeof tool.description === "string")
       .map((tool) => ({
         name: tool.name,
@@ -391,7 +427,7 @@ export class ToolRegistry {
       }))
       .filter((tool) => tool.description.length > 0);
     if (targets.length === 0) {
-      return tools;
+      return withCached;
     }
     let summaries: Record<string, string> = {};
     try {
@@ -399,12 +435,12 @@ export class ToolRegistry {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       console.error(`LLM summaries failed: ${message}`);
-      return tools;
+      return withCached;
     }
     if (Object.keys(summaries).length === 0) {
-      return tools;
+      return withCached;
     }
-    return tools.map((tool) => {
+    return withCached.map((tool) => {
       const summary = summaries[tool.name];
       if (!summary || tool.summary) {
         return tool;
