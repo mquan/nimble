@@ -11,8 +11,7 @@ MCP clients naively include all tool descriptions and schemas on the context win
 
 We see over 99% token savings when tested with popular MCP servers (Notion, Linear, Figma, etc.)
 
-<img width="874" height="554" alt="Image" src="https://github.com/user-attachments/assets/39d351bc-602c-4583-89d6-48b72e7a330a" />
-
+<img width="437" height="277" alt="Token savings" src="images/token-savings.png" />
 
 ## Installation
 nimble runs over stdio. Configure your MCP client to launch it:
