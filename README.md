@@ -102,3 +102,10 @@ OAuth flow by URL/transport (manual):
 NIMBLE_ENCRYPTION_KEY=your-encryption-key node dist/index.js --server-url https://mcp.notion.com/mcp --transport streamableHttp
 ```
 If the server does not exist yet, this will auto-add a default OAuth entry and use a local callback at `http://127.0.0.1:8787/callback`.
+
+### Publish
+
+```
+npm login
+npm publish --access public
+```
