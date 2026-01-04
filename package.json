@@ -1,6 +1,6 @@
 {
   "name": "nimble-mcp",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Unify all MCP tools under one server and save token cost.",
   "homepage": "https://github.com/mquan/nimble",
   "keywords": [
