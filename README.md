@@ -10,8 +10,8 @@ nimble runs over stdio. Configure your MCP client to launch it:
 {
   "mcpServers": {
     "nimble": {
-      "command": "node",
-      "args": ["./dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "nimble-mcp"],
       "env": {
         "NIMBLE_ENCRYPTION_KEY": "your-encryption-key"
       }
@@ -26,7 +26,7 @@ Example:
   "mcpServers": {
     "nimble": {
       "command": "node",
-      "args": ["./dist/index.js"],
+      "args": ["-y", "nimble-mcp"],
       "env": {
         "NIMBLE_ENCRYPTION_KEY": "your-encryption-key",
         "OPENAI_API_KEY": "sk-...",

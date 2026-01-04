@@ -1,7 +1,8 @@
 {
-  "name": "nimble",
+  "name": "nimble-mcp",
   "version": "0.1.0",
   "description": "Unify all MCP tools under one server and save token cost.",
+  "homepage": "https://github.com/mquan/nimble",
   "author": "Quan Nguyen",
   "type": "module",
   "main": "dist/index.js",
