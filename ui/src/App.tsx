@@ -247,6 +247,15 @@ export default function App() {
     return { perServer, overall: { used, original } };
   }, [cache]);
 
+  const connectedServers = useMemo(() => {
+    if (!cache?.servers) {
+      return 0;
+    }
+    return servers.reduce((sum, server) => {
+      return cache.servers[server.name]?.status === "ok" ? sum + 1 : sum;
+    }, 0);
+  }, [cache, servers]);
+
   const selectedIsNew = useMemo(() => {
     return !servers.find((server) => server.name === selected.name);
   }, [servers, selected.name]);
@@ -514,8 +523,8 @@ export default function App() {
         </div>
         <div className="hero-panel">
           <div>
-            <p className="panel-label">Servers</p>
-            <p className="panel-value">{servers.length}</p>
+            <p className="panel-label">Connected servers</p>
+            <p className="panel-value">{connectedServers}</p>
           </div>
           <div>
             <p className="panel-label">Tools</p>
