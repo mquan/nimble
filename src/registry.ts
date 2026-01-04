@@ -7,6 +7,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { ServerConfig } from "./config.js";
 import type { CredentialStore } from "./credentials.js";
 import { StoredOAuthProvider } from "./oauth.js";
+import type { ToolSummaryProvider } from "./summary.js";
 import type { ConfigStore } from "./store.js";
 import type { EventSourceInit } from "eventsource";
 
@@ -36,6 +37,7 @@ export class ToolRegistry {
   private profileName: string;
   private store: ConfigStore;
   private credentialStore: CredentialStore;
+  private summaryProvider?: ToolSummaryProvider;
   private clients = new Map<string, Client>();
   private tools = new Map<string, ToolEntry>();
   private status = new Map<string, ServerStatus>();
@@ -44,10 +46,12 @@ export class ToolRegistry {
     profileName: string,
     store: ConfigStore,
     credentialStore: CredentialStore,
+    summaryProvider?: ToolSummaryProvider,
   ) {
     this.profileName = profileName;
     this.store = store;
     this.credentialStore = credentialStore;
+    this.summaryProvider = summaryProvider;
   }
 
   async initialize(): Promise<void> {
@@ -64,7 +68,8 @@ export class ToolRegistry {
     const tools = await client.listTools();
     await client.close();
     const enabledByName = this.getEnabledOverrides(server.name);
-    return this.enrichTools(tools.tools ?? [], enabledByName);
+    const toolDefs = await this.applyLlmSummaries(tools.tools ?? []);
+    return this.enrichTools(toolDefs, enabledByName);
   }
 
   listSummaries(): { name: string; summary: string }[] {
@@ -117,7 +122,8 @@ export class ToolRegistry {
       const client = await this.connectClient(server);
       const tools = await client.listTools();
       const enabledByName = this.getEnabledOverrides(server.name);
-      const enrichedTools = this.enrichTools(tools.tools ?? [], enabledByName);
+      const toolDefs = await this.applyLlmSummaries(tools.tools ?? []);
+      const enrichedTools = this.enrichTools(toolDefs, enabledByName);
       this.clients.set(server.name, client);
       this.status.set(server.name, { status: "ok" });
       this.registerTools(server, enrichedTools);
@@ -369,6 +375,42 @@ export class ToolRegistry {
       }
     }
     return overrides;
+  }
+
+  private async applyLlmSummaries(
+    tools: ToolDefinition[],
+  ): Promise<ToolDefinition[]> {
+    if (!this.summaryProvider) {
+      return tools;
+    }
+    const targets = tools
+      .filter((tool) => !tool.summary && typeof tool.description === "string")
+      .map((tool) => ({
+        name: tool.name,
+        description: (tool.description ?? "").trim(),
+      }))
+      .filter((tool) => tool.description.length > 0);
+    if (targets.length === 0) {
+      return tools;
+    }
+    let summaries: Record<string, string> = {};
+    try {
+      summaries = await this.summaryProvider.generateSummaries(targets);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      console.error(`LLM summaries failed: ${message}`);
+      return tools;
+    }
+    if (Object.keys(summaries).length === 0) {
+      return tools;
+    }
+    return tools.map((tool) => {
+      const summary = summaries[tool.name];
+      if (!summary || tool.summary) {
+        return tool;
+      }
+      return { ...tool, summary };
+    });
   }
 
 }

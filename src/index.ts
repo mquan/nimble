@@ -13,6 +13,7 @@ import { resolveDbPath } from "./config.js";
 import { CredentialStore } from "./credentials.js";
 import { StoredOAuthProvider } from "./oauth.js";
 import { ToolRegistry } from "./registry.js";
+import { createToolSummaryProvider } from "./summary.js";
 import { auth } from "@modelcontextprotocol/sdk/client/auth.js";
 import { ConfigStore } from "./store.js";
 
@@ -99,7 +100,12 @@ if (oauthServerName || oauthServerUrl) {
 }
 
 const credentialStore = new CredentialStore({ dataDir: path.dirname(dbPath) });
-const registry = new ToolRegistry(profileName, store, credentialStore);
+const registry = new ToolRegistry(
+  profileName,
+  store,
+  credentialStore,
+  createToolSummaryProvider(),
+);
 await registry.initialize();
 
 const uiPort = Number(process.env.MINI_MCP_UI_PORT ?? 3000);
@@ -407,7 +413,12 @@ async function connectAndDiscover(
   }
 
   const credentialStore = new CredentialStore({ dataDir: path.dirname(dbPath) });
-  const registry = new ToolRegistry(profileName, localStore, credentialStore);
+  const registry = new ToolRegistry(
+    profileName,
+    localStore,
+    credentialStore,
+    createToolSummaryProvider(),
+  );
   let tools: Array<{ name: string; description?: string; summary?: string; inputSchema?: unknown }>;
   let activeServer = server;
   try {

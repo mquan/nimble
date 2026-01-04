@@ -105,6 +105,31 @@ mini-mcp runs over stdio. Configure your MCP client to launch it:
   }
 }
 ```
+Add OpenAI env vars here if you want LLM summaries in this mode.
+Example:
+```
+{
+  "mcpServers": {
+    "mini-mcp": {
+      "command": "node",
+      "args": ["./dist/index.js"],
+      "env": {
+        "MINI_MCP_ENCRYPTION_KEY": "your-encryption-key",
+        "OPENAI_API_KEY": "sk-...",
+        "MINI_MCP_OPENAI_MODEL": "gpt-5-mini"
+      }
+    }
+  }
+}
+```
+
+## LLM Summaries
+Optional: auto-generate tool summaries on connect using OpenAI.
+```
+OPENAI_API_KEY=sk-... \
+MINI_MCP_OPENAI_MODEL=gpt-5-mini \
+node dist/index.js connect --name remote --transport streamableHttp --server-url https://mcp.example.com/mcp
+```
 
 ## Local Test
 ```
