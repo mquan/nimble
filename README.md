@@ -46,19 +46,26 @@ Example:
 ### Quick guide
 Once configuration in your MCP client complete, head over to http://localhost:3000/ to setup.
 
-Add a server and authenticate
+**Add a server and authenticate**
+
 <img width="1437" height="850" alt="Image" src="https://github.com/user-attachments/assets/c722da72-acf4-465c-afc2-3b5b728db4bc" />
 
+
 If you provided an `OPENAI_API_KEY`, the summaries will be automatically computed. Otherwise, the default is using the first sentence from the description. You may also customize this by clicking on the tool and modify the summary from the tool modal
+
 <img width="768" height="290" alt="Image" src="https://github.com/user-attachments/assets/98105d5c-5611-48fb-a324-9fa4ca58f9d8" />
 
-You can also toggle tools on/off
+
+**You can also toggle tools on/off**
+
 <img width="478" height="726" alt="Image" src="https://github.com/user-attachments/assets/251e560e-c854-4787-8ac5-538d924388d7" />
 
-Test out the server from the included MCP client
+**Test out the server from the included MCP client**
+
 <img width="1451" height="851" alt="Image" src="https://github.com/user-attachments/assets/1a00ad1b-6411-4e59-8fab-5cf2a11bf541" />
 
-Repeat the process to include more MCP servers
+
+Repeat the process to include more MCP servers.
 
 ## Development
 ```
