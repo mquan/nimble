@@ -1,7 +1,7 @@
 {
   "name": "mini-mcp",
   "version": "0.1.0",
-  "description": "MCP tool router that scales to thousands of tools without the token tax",
+  "description": "Unify all MCP tools under one server and save tokens",
   "author": "Quan Nguyen",
   "type": "module",
   "main": "dist/index.js",

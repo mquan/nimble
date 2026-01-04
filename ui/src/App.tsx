@@ -635,7 +635,7 @@ export default function App() {
               <input
                 value={selected.name}
                 onChange={(event) => updateSelected("name", event.target.value)}
-                placeholder="notion"
+                placeholder="MCP server"
               />
               <span className="hint">Server names must be unique.</span>
             </label>
