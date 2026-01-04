@@ -11,7 +11,7 @@ MCP clients naively include all tool descriptions and schemas on the context win
 
 We see over 99% token savings when tested with popular MCP servers (Notion, Linear, Figma, etc.)
 
-<img width="437" height="277" alt="Token savings" src="images/token-savings.png" />
+<img width="437" height="277" alt="Token savings" src="https://raw.githubusercontent.com/mquan/nimble/main/images/token-savings.png" />
 
 ## Installation
 nimble runs over stdio. Configure your MCP client to launch it:
@@ -54,28 +54,28 @@ Once configuration in your MCP client complete, open the config UI (http://local
 **Add a server and authenticate**
 
 <br/>
-<img width="2492" height="1502" alt="Server configs" src="images/server-config.png" />
+<img width="2492" height="1502" alt="Server configs" src="https://raw.githubusercontent.com/mquan/nimble/main/images/server-config.png" />
 
 <br/>
 <br/>
 
 If you provided an `OPENAI_API_KEY`, the summaries will be automatically inferred by LLM (OpenAI for now). Otherwise, the first sentence from the description will be used. You may also customize this by clicking on the tool and modify the summary from the tool modal
 
-<img width="768" height="290" alt="Editing tool summary" src="images/tool-summary-edit.png" />
+<img width="768" height="290" alt="Editing tool summary" src="https://raw.githubusercontent.com/mquan/nimble/main/images/tool-summary-edit.png" />
 
 <br/>
 <br/>
 
 **You can also toggle tools on/off**
 
-<img width="478" height="726" alt="Tool toggles" src="images/tool-toggle.png" />
+<img width="478" height="726" alt="Tool toggles" src="https://raw.githubusercontent.com/mquan/nimble/main/images/tool-toggle.png" />
 
 <br/>
 <br/>
 
 **Test out the server from the included MCP client**
 
-<img width="1451" height="851" alt="Testing with MCP client" src="images/mcp-client-test.png" />
+<img width="1451" height="851" alt="Testing with MCP client" src="https://raw.githubusercontent.com/mquan/nimble/main/images/mcp-client-test.png" />
 <br/>
 <br/>
 
