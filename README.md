@@ -5,7 +5,7 @@ Unify all MCP tools under one server and save token cost.
 ## How it works
 MCP clients naively include all tool descriptions and schemas on the context window. This results in excessive token consumption even when you only use a few tools. Multiply this over several MCP servers and your chat session is not only costly but also unsable as you'll quickly run into the model's token limit.
 
-`nimble` solves the problem by using concise tool summaries. Tool call is performed in two steps
+`nimble` solves the problem by allowing tools to be lazy loaded only when they're needed. The idea is connect to a unified MCP server with concise tool summaries and let LLM discover and expand full tool description when needed. Tool call is broken in two steps
 1. selecting the right tool to use
 2. expanding the detailed tool description and schema
 
@@ -30,7 +30,7 @@ nimble runs over stdio. Configure your MCP client to launch it:
 }
 ```
 
-Add OpenAI env vars here if you want LLM summaries.
+Add OpenAI env vars here if you want LLM summaries to be automatically inferred when connecting a server.
 Example:
 ```
 {
