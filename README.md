@@ -1,15 +1,13 @@
 # nimble
 
-Unify all MCP tools under one server and save token cost.
+A token-efficient MCP server that lazy loads tools and proxy tool calls
 
 ## How it works
 MCP clients naively include all tool descriptions and schemas on the context window. This results in excessive token consumption even when you only use a few tools. Multiply this over several MCP servers and your chat session is not only costly but also unsable as you'll quickly run into the model's token limit.
 
-`nimble` solves the problem by allowing tools to be lazy loaded only when they're needed. The idea is connect to a unified MCP server with concise tool summaries and let LLM discover and expand full tool description when needed. Tool call is broken in two steps
-1. selecting the right tool to use
-2. expanding the detailed tool description and schema
+`nimble` solves the problem by allowing tools to be lazy loaded only when they're needed. The idea is connect to a unified MCP server with concise tool summaries and let LLM discover and expand full tool description when needed.
 
-We see over 99% token savings when tested with popular MCP servers (Notion, Linear, Figma, etc.)
+When tested with popular MCP servers (Notion, Linear, Figma, etc.), we see over 99% token savings on initial load and 90% during typical chat sessions.
 
 <img width="437" height="277" alt="Token savings" src="https://raw.githubusercontent.com/mquan/nimble/main/images/token-savings.png" />
 
