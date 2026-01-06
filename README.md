@@ -28,7 +28,11 @@ nimble runs over stdio. Configure your MCP client to launch it:
 }
 ```
 
+The `NIMBLE_ENCRYPTION_KEY` is to use to encrypt server credentials (access & refresh tokens), which are stored in local sqlite db.
+
+
 Add OpenAI env vars here if you want LLM summaries to be automatically inferred when connecting a server.
+
 Example:
 ```
 {
@@ -80,6 +84,8 @@ If you provided an `OPENAI_API_KEY`, the summaries will be automatically inferre
 Repeat the process to add more MCP servers.
 
 ## Development
+Create a `.env` file in the repo root (see `.env.example`) to manage env vars locally.
+
 ```
 npm run dev
 ```

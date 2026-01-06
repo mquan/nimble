@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "npm run ui:build && tsc -p tsconfig.json",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx -r dotenv/config src/index.ts",
     "prepack": "npm run build",
     "test": "rm -rf dist && npm run build && node --test dist/tests/*.js",
     "ui:dev": "vite --config ui/vite.config.ts",
@@ -45,6 +45,7 @@
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "dotenv": "^17.2.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^7.3.0"
