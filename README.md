@@ -1,9 +1,14 @@
 # nimble
 
-A token-efficient MCP server that lazy loads tools and proxy tool calls
+A token-efficient MCP server that lazy loads tools and proxies tool calls
+
+- comes with a local dashboard to connect and configure MCP servers
+- proxies tool calls with 3 simple top-level tools: `list-tools`, `get-tool`, `execute-tool`
+- supports tool summarization by LLM, you may also customize your own tool summaries
+
 
 ## How it works
-MCP clients naively include all tool descriptions and schemas on the context window. This results in excessive token consumption even when you only use a few tools. Multiply this over several MCP servers and your chat session is not only costly but also unsable as you'll quickly run into the model's token limit.
+MCP clients naively include all tool descriptions and schemas on the context window. This results in excessive token consumption even when you only use a few tools. Multiply this over several MCP servers and your chat session becomes bloated. It's not only costly but also unsable as you'll quickly run into the model's token limit.
 
 `nimble` solves the problem by allowing tools to be lazy loaded only when they're needed. The idea is connect to a unified MCP server with concise tool summaries and let LLM discover and expand full tool description when needed.
 
@@ -28,7 +33,9 @@ nimble runs over stdio. Configure your MCP client to launch it:
 }
 ```
 
-The `NIMBLE_ENCRYPTION_KEY` is to use to encrypt server credentials (access & refresh tokens), which are stored in local sqlite db.
+The NIMBLE_UI_PORT determines the port for the local config server (default: http://localhost:3333).
+
+The `NIMBLE_ENCRYPTION_KEY` is used to encrypt server credentials (access & refresh tokens), which are stored in local sqlite db.
 
 
 Add OpenAI env vars here if you want LLM summaries to be automatically inferred when connecting a server.
@@ -50,8 +57,15 @@ Example:
 }
 ```
 
+## Tools
+
+- `list-tools` provides a list of available tools and a brief summary of each tool
+- `get-tool` retrieves a given tool's detailed description and schema
+- `execute-tool` performs the tool call that proxies the input argument to the original tool server
+
+
 ## Quick guide
-Once configuration in your MCP client complete, open the config UI (http://localhost:3333/) in the browser to setup.
+Once configuration in your MCP client complete, open the config dashboard (http://localhost:3333/) in the browser to setup MCP connections.
 
 **Add a server and authenticate**
 
