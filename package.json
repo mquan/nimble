@@ -1,7 +1,7 @@
 {
   "name": "nimble-mcp",
-  "version": "0.5.2",
-  "description": "A token-efficient MCP server that lazy loads tools and proxy tool calls",
+  "version": "0.6.0",
+  "description": "A token-efficient MCP server that lazy loads tools and proxies tool calls",
   "homepage": "https://github.com/mquan/nimble",
   "keywords": [
     "mcp",
@@ -29,7 +29,7 @@
     "ui:preview": "vite preview --config ui/vite.config.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.25.1",
+    "@modelcontextprotocol/sdk": "^1.25.2",
     "better-sqlite3": "^12.5.0",
     "openai": "^6.15.0",
     "prismjs": "^1.29.0",
