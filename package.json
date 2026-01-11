@@ -1,6 +1,6 @@
 {
   "name": "nimble-mcp",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A token-efficient MCP server that lazy loads tools and proxies tool calls",
   "homepage": "https://github.com/mquan/nimble",
   "keywords": [
@@ -30,9 +30,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
-    "better-sqlite3": "^12.5.0",
-    "openai": "^6.15.0",
-    "prismjs": "^1.29.0",
+    "better-sqlite3": "^12.6.0",
+    "openai": "^6.16.0",
+    "prismjs": "^1.30.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^9.0.1",
